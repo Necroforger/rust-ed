@@ -11,7 +11,6 @@ use crossterm::{
 };
 
 use std::io::{stdout, Write};
-use crossterm::cursor::DisableBlinking;
 
 #[derive(Debug)]
 pub enum EditMode {
@@ -186,6 +185,13 @@ where
                     0,
                     self.render_opts.view.location.y() + (self.render_opts.view.height / 2),
                 );
+            }
+            Ctrl('v') => {
+                let text = self.clipboard.paste().unwrap().replace("\r", "");
+                for c in text.chars() {
+                    self.editor.write(c);
+                }
+                self.render();
             }
             Ctrl('l') => {
                 // center the screen on the cursor
