@@ -11,6 +11,7 @@ use crossterm::{
 };
 
 use std::io::{stdout, Write};
+use crossterm::cursor::DisableBlinking;
 
 #[derive(Debug)]
 pub enum EditMode {
@@ -42,6 +43,8 @@ where
     // render until the end of the line rather
     // than the entire screen width
     render_break_line_hint: bool,
+
+    cursor_hidden: bool,
 }
 
 impl<T> Application<T>
@@ -59,6 +62,8 @@ where
             render_line_hint: None,
             render_break_line_hint: false,
             edit_mode: EditMode::Insert,
+
+            cursor_hidden: false,
         }
     }
 
@@ -314,7 +319,7 @@ where
         self.render_line_hint = None;
     }
 
-    pub fn update_cursor_pos(&self) {
+    pub fn update_cursor_pos(&mut self) {
         if self.render_opts.view.contains(self.editor.cursor_pos()) {
             // place the cursor over the current character
             let x = self.render_opts.view.x();
@@ -324,9 +329,23 @@ where
             let real_x = self.editor.cursor_pos().x() - x;
             let real_y = self.editor.cursor_pos().y() - y;
 
-            std::io::stdout()
+            stdout()
                 .execute(MoveTo(real_x as u16, real_y as u16))
                 .unwrap();
+
+            if self.cursor_hidden {
+                stdout()
+                    .execute(crossterm::cursor::Show)
+                    .unwrap();
+                self.cursor_hidden = false;
+            }
+        } else {
+            if !self.cursor_hidden {
+                stdout()
+                    .execute(crossterm::cursor::Hide)
+                    .unwrap();
+                self.cursor_hidden = true;
+            }
         }
     }
 
