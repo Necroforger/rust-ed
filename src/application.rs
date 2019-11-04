@@ -83,8 +83,6 @@ where
             if let Some(event) = reader.next() {
                 self.process_event(event);
             }
-
-            // thread::sleep(std::time::Duration::from_millis(50));
         }
     }
 
@@ -247,8 +245,16 @@ where
             Char('k') => self.move_cursor(0, -1),
             Char('h') => self.move_cursor(-1, 0),
             Char('l') => self.move_cursor(1, 0),
+            Char('w') => self.next_word(true),
+            Char('b') => self.next_word(false),
             _ => {}
         }
+    }
+
+    /// move the cursor to the next word
+    pub fn next_word(&mut self, forward: bool) {
+        let pos = self.editor.next_word(self.editor.cursor_pos(), forward);
+        self.set_cursor(pos.x(), pos.y());
     }
 
     pub fn render_status_bar(&mut self) {
@@ -277,7 +283,6 @@ where
     pub fn render(&mut self) {
         self.update_view_size().unwrap();
 
-
         // render a single line if the line hint is not None
         if let Some(line) = self.render_line_hint {
             self.render_line(line);
@@ -291,7 +296,6 @@ where
         write!(&mut stdout, "{}", text).unwrap();
 
         self.render_status_bar();
-
         self.update_cursor_pos();
     }
 

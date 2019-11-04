@@ -4,6 +4,7 @@
 // TODO: Make the write function erase the current selection before beginning a write
 
 use std::collections::VecDeque;
+use std::iter::Iterator;
 
 /// Information for a particular character cell.
 /// Contains color values and other metadata
@@ -343,6 +344,43 @@ impl Editor {
         }
     }
 
+
+    /// return the location of the next word after the given location
+    /// if the character you are currently on is non-ascii it will return the
+    /// next character
+    pub fn next_word(&self, location: impl Into<Vector2>, forward: bool) -> Vector2 {
+        let location = self.clamp_vector(location.into());
+        let x = location.x();
+        let y = location.y();
+        let row = self.buffer.get(y as usize);
+
+        let direction = if forward {
+            1
+        } else {
+            -1
+        };
+
+        if let Some(row) = row {
+            let mut i = x;
+            let len = row.len() as i32;
+            loop {
+                i += direction;
+                if i >= len {
+                    return Vector2(len, y);
+                }
+                if i == -1 {
+                    return Vector2(0, y);
+                }
+                let c = row.get(i as usize).unwrap().char;
+                if !is_alpha_numeric(c) {
+                    return Vector2(i as i32, y);
+                }
+            }
+        }
+
+        return Vector2(x + direction, y);
+    }
+
     /// Write a group of cells after `location`
     /// coordinates are provided as (col, row).
     /// the range of valid `col` indices is [0, col.len]
@@ -649,4 +687,8 @@ mod test {
             assert_eq!(editor.to_string(), i.to_string());
         }
     }
+}
+
+fn is_alpha_numeric(c: char) -> bool {
+    return (c > 'a' && c < 'z') || (c > 'A' && c < 'Z') || (c > '0' && c < '9');
 }
