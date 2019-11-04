@@ -4,15 +4,13 @@ use crate::renderer::{RenderOpts, Renderer, StringRenderer};
 
 use crossterm::{
     cursor::MoveTo,
-    input::{InputEvent, KeyEvent, SyncReader},
+    input::{EnableMouseCapture, InputEvent, KeyEvent, MouseEvent, SyncReader},
     screen::{self},
-    terminal::{self},
+    terminal::{self, ClearType},
     ExecutableCommand,
 };
 
-use crossterm::input::{EnableMouseCapture, MouseEvent};
-use crossterm::terminal::ClearType;
-use std::io::Write;
+use std::io::{stdout, Write};
 
 #[derive(Debug)]
 pub enum EditMode {
@@ -141,6 +139,7 @@ where
     pub fn process_key_event(&mut self, event: KeyEvent) {
         use KeyEvent::*;
 
+        // global key bindings, apply regardless of edit mode
         match event {
             Down => {
                 self.move_cursor(0, 1);
@@ -191,17 +190,30 @@ where
                     self.editor.cursor_pos().y() - (self.render_opts.view.height / 2);
                 self.render();
             }
-            Char(x) => match self.edit_mode {
-                EditMode::Command => {
-                    self.process_command_mode(event);
-                }
-                EditMode::Insert => {
-                    self.editor.write(x);
-                    self.render_break_line_hint = true;
-                    self.render_line_hint = Some(self.editor.cursor_pos().y());
-                    self.render();
-                }
+            Home => {
+                self.set_cursor(0, self.editor.cursor_pos().y());
+            }
+            End => {
+                self.set_cursor(self.editor.line_len() as i32, self.editor.cursor_pos().y());
+            }
+            _ => match self.edit_mode {
+                EditMode::Insert => self.process_insert_mode(event),
+                EditMode::Command => self.process_command_mode(event),
             },
+        }
+    }
+
+    /// process keys for insert mode
+    pub fn process_insert_mode(&mut self, event: KeyEvent) {
+        use KeyEvent::*;
+        match event {
+            Char(x) => {
+                self.log = format!("{}{}{}", "[", x, "]");
+                self.editor.write(x);
+                self.render_break_line_hint = true;
+                self.render_line_hint = Some(self.editor.cursor_pos().y());
+                self.render();
+            }
             Esc => {
                 // switch to command mode
                 self.edit_mode = EditMode::Command;
@@ -218,12 +230,6 @@ where
             Enter => {
                 self.editor.write('\n');
                 self.render();
-            }
-            Home => {
-                self.set_cursor(0, self.editor.cursor_pos().y());
-            }
-            End => {
-                self.set_cursor(self.editor.line_len() as i32, self.editor.cursor_pos().y());
             }
             _ => {}
         }
@@ -245,10 +251,32 @@ where
         }
     }
 
+    pub fn render_status_bar(&mut self) {
+        stdout()
+            .execute(MoveTo(0, (self.render_opts.view.height + 1) as u16))
+            .unwrap();
+
+        use EditMode::*;
+
+        let l = self.render_opts.view.location;
+        let r = self.render_opts.view;
+        let mode = match self.edit_mode {
+            Insert => "insert",
+            Command => "command",
+        };
+
+        use std::cmp::max;
+
+        let text = format!("help[F1] {}:{}:{}:{} // [{}] [{} mode]", l.x(), l.y(), r.width, r.height, self.log, mode);
+        let padding: String = std::iter::repeat(" ").take(max(r.width as usize - text.len(), 0)).collect();
+        print!("{}{}", text, padding);
+    }
+
     /// render the screen to crossterm.
     /// if self.render_line_hint is not None, only that line will be rendered
     pub fn render(&mut self) {
         self.update_view_size().unwrap();
+
 
         // render a single line if the line hint is not None
         if let Some(line) = self.render_line_hint {
@@ -260,12 +288,9 @@ where
 
         let mut stdout = std::io::stdout();
         stdout.execute(MoveTo(0, 0)).unwrap();
-        write!(
-            &mut stdout,
-            "{}[F1 to display help ] {:?}{}",
-            text, self.render_opts, self.log
-        )
-        .unwrap();
+        write!(&mut stdout, "{}", text).unwrap();
+
+        self.render_status_bar();
 
         self.update_cursor_pos();
     }
@@ -303,15 +328,17 @@ where
             }
             .render(&self.editor, self.render_opts);
             print!("{}", text);
+            self.render_status_bar();
             self.update_cursor_pos();
             self.clear_render_hints();
         } else {
             self.clear_render_hints();
 
+            // only render changes if the current view could be affected by the edits.
+            // this should be changed to apply only when a new line has been inserted.
             if Vector2(0, ycp) < self.render_opts.view.location {
                 self.render();
             }
-            // the line is not in view, no need to render any changes
         }
     }
 
