@@ -14,6 +14,12 @@ use crossterm::input::{EnableMouseCapture, MouseEvent};
 use crossterm::terminal::ClearType;
 use std::io::Write;
 
+#[derive(Debug)]
+pub enum EditMode {
+    Command,
+    Insert,
+}
+
 /// handles the main application logic
 pub struct Application<T>
 where
@@ -21,12 +27,22 @@ where
 {
     pub editor: Editor,
     pub clipboard: T,
+
+    // stores the current rendering offsets and widths / heights
     pub render_opts: RenderOpts,
+
+    // when true, signals the application to exit
     pub exit: bool,
     pub log: String,
 
-    // hint to only render a particular line
+    // current edit mode
+    pub edit_mode: EditMode,
+
+    // only render a particular line
     render_line_hint: Option<i32>,
+
+    // render until the end of the line rather
+    // than the entire screen width
     render_break_line_hint: bool,
 }
 
@@ -41,8 +57,10 @@ where
             render_opts: RenderOpts::default(),
             exit: false,
             log: String::new(),
+
             render_line_hint: None,
             render_break_line_hint: false,
+            edit_mode: EditMode::Insert,
         }
     }
 
@@ -105,59 +123,48 @@ where
         }
     }
 
+    pub fn set_cursor(&mut self, x: i32, y: i32) {
+        self.editor.set_cursor((x, y));
+        self.update_cursor_pos();
+    }
+
+    pub fn move_cursor(&mut self, x: i32, y: i32) {
+        self.editor.move_cursor((x, y));
+        self.update_cursor_pos();
+    }
+
+    pub fn move_view(&mut self, x: i32, y: i32) {
+        self.render_opts.view.location = self.render_opts.view.location.add(Vector2(x, y));
+        self.render();
+    }
+
     pub fn process_key_event(&mut self, event: KeyEvent) {
         use KeyEvent::*;
 
-        macro_rules! move_view {
-            ($x:expr, $y:expr) => {
-                self.render_opts.view.location =
-                    self.render_opts.view.location.add(Vector2($x, $y));
-                self.render();
-            };
-        }
-
-        macro_rules! move_cursor {
-            ($x:expr, $y:expr) => {
-                self.editor.move_cursor(($x, $y));
-                self.update_cursor_pos();
-            };
-        }
-
-        macro_rules! set_cursor {
-            ($x:expr, $y:expr) => {
-                self.editor.set_cursor(($x, $y));
-                self.render();
-            };
-            ($x:expr) => {
-                self.editor.set_cursor($x);
-                self.render();
-            };
-        }
-
         match event {
             Down => {
-                move_cursor!(0, 1);
+                self.move_cursor(0, 1);
             }
             Up => {
-                move_cursor!(0, -1);
+                self.move_cursor(0, -1);
             }
             Right => {
-                move_cursor!(1, 0);
+                self.move_cursor(1, 0);
             }
             Left => {
-                move_cursor!(-1, 0);
+                self.move_cursor(-1, 0);
             }
             CtrlDown => {
-                move_view!(0, 1);
+                self.move_view(0, 1);
             }
             CtrlUp => {
-                move_view!(0, -1);
+                self.move_view(0, -1);
             }
             CtrlRight => {
-                move_view!(1, 0);
+                self.move_view(1, 0);
             }
             CtrlLeft => {
-                move_view!(-1, 0);
+                self.move_view(-1, 0);
             }
             F(1) => {
                 use crossterm::terminal::Clear;
@@ -173,10 +180,10 @@ where
             }
             Ctrl('a') => {
                 // bring the cursor to the top of the viewport
-                set_cursor!((
+                self.set_cursor(
                     0,
-                    self.render_opts.view.location.y() + (self.render_opts.view.height / 2)
-                ));
+                    self.render_opts.view.location.y() + (self.render_opts.view.height / 2),
+                );
             }
             Ctrl('l') => {
                 // center the screen on the cursor
@@ -184,10 +191,20 @@ where
                     self.editor.cursor_pos().y() - (self.render_opts.view.height / 2);
                 self.render();
             }
-            Char(x) => {
-                self.editor.write(x);
-                self.render_break_line_hint = true;
-                self.render_line_hint = Some(self.editor.cursor_pos().y());
+            Char(x) => match self.edit_mode {
+                EditMode::Command => {
+                    self.process_command_mode(event);
+                }
+                EditMode::Insert => {
+                    self.editor.write(x);
+                    self.render_break_line_hint = true;
+                    self.render_line_hint = Some(self.editor.cursor_pos().y());
+                    self.render();
+                }
+            },
+            Esc => {
+                // switch to command mode
+                self.edit_mode = EditMode::Command;
                 self.render();
             }
             Backspace => {
@@ -203,11 +220,27 @@ where
                 self.render();
             }
             Home => {
-                set_cursor!(0, self.editor.cursor_pos().y());
+                self.set_cursor(0, self.editor.cursor_pos().y());
             }
             End => {
-                set_cursor!(self.editor.line_len() as i32, self.editor.cursor_pos().y());
+                self.set_cursor(self.editor.line_len() as i32, self.editor.cursor_pos().y());
             }
+            _ => {}
+        }
+    }
+
+    /// process command mode inputs
+    pub fn process_command_mode(&mut self, event: KeyEvent) {
+        use KeyEvent::*;
+        match event {
+            Char('i') => {
+                self.edit_mode = EditMode::Insert;
+                self.render();
+            }
+            Char('j') => self.move_cursor(0, 1),
+            Char('k') => self.move_cursor(0, -1),
+            Char('h') => self.move_cursor(-1, 0),
+            Char('l') => self.move_cursor(1, 0),
             _ => {}
         }
     }
@@ -274,10 +307,12 @@ where
             self.clear_render_hints();
         } else {
             self.clear_render_hints();
-            // the line is not in view, render normally
-            self.render();
-        }
 
+            if Vector2(0, ycp) < self.render_opts.view.location {
+                self.render();
+            }
+            // the line is not in view, no need to render any changes
+        }
     }
 
     /// update the view size for the renderer
