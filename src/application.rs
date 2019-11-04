@@ -188,6 +188,11 @@ where
                     self.editor.cursor_pos().y() - (self.render_opts.view.height / 2);
                 self.render();
             }
+            Ctrl('s') => {
+                self.save_to_file();
+                self.log = "saved to editor_contents.txt".to_string();
+                self.render();
+            }
             Home => {
                 self.set_cursor(0, self.editor.cursor_pos().y());
             }
@@ -255,6 +260,11 @@ where
     pub fn next_word(&mut self, forward: bool) {
         let pos = self.editor.next_word(self.editor.cursor_pos(), forward);
         self.set_cursor(pos.x(), pos.y());
+    }
+
+    /// save the editor contents to a file
+    pub fn save_to_file(&self) {
+        std::fs::write("editor_contents.txt", self.editor.to_string()).unwrap();
     }
 
     pub fn render_status_bar(&mut self) {

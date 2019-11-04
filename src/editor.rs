@@ -690,5 +690,5 @@ mod test {
 }
 
 fn is_alpha_numeric(c: char) -> bool {
-    return (c > 'a' && c < 'z') || (c > 'A' && c < 'Z') || (c > '0' && c < '9');
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
 }
