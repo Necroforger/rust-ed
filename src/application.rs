@@ -179,6 +179,10 @@ where
             Ctrl('c') => {
                 self.exit = true;
             }
+            Ctrl('d') => { // delete the line the cursor is on
+                self.delete_line();
+                self.render();
+            }
             Ctrl('a') => {
                 // bring the cursor to the top of the viewport
                 self.set_cursor(
@@ -246,6 +250,31 @@ where
                 self.render();
             }
             _ => {}
+        }
+    }
+
+    pub fn delete_line(&mut self) {
+        // move cursor to the end of the line
+        // delete characters until the beginning of the line has been reached
+        self.set_cursor(self.editor.line_len() as i32, self.editor.cursor_pos().y());
+        while let Some(c) = self.editor.delete() {
+            if c.char == '\n' {
+                break;
+            }
+        }
+
+        // move the cursor to the beginning of the line and move down one
+        let pos = self.editor.cursor_pos();
+
+        let delete_beginning = if pos.y() == 0 {
+            true
+        } else {
+            false
+        };
+
+        self.editor.set_cursor((0, pos.y() + 1));
+        if delete_beginning {
+            self.editor.delete();
         }
     }
 
