@@ -257,6 +257,7 @@ where
     }
 
     pub fn delete_line(&mut self) {
+        let pos = self.editor.cursor_pos();
         // move cursor to the end of the line
         // delete characters until the beginning of the line has been reached
         self.set_cursor(self.editor.line_len() as i32, self.editor.cursor_pos().y());
@@ -266,12 +267,11 @@ where
             }
         }
 
-        // move the cursor to the beginning of the line and move down one
-        let pos = self.editor.cursor_pos();
-
         let delete_beginning = if pos.y() == 0 { true } else { false };
 
-        self.editor.set_cursor((0, pos.y() + 1));
+        // move the cursor to the beginning of the line and move down one
+        self.go_to_line_home();
+        self.editor.move_cursor((0, 1));
         if delete_beginning {
             self.editor.delete();
         }
