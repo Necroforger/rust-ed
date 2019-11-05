@@ -344,7 +344,6 @@ impl Editor {
         }
     }
 
-
     /// return the location of the next word after the given location
     /// if the character you are currently on is non-ascii it will return the
     /// next character
@@ -354,11 +353,7 @@ impl Editor {
         let y = location.y();
         let row = self.buffer.get(y as usize);
 
-        let direction = if forward {
-            1
-        } else {
-            -1
-        };
+        let direction = if forward { 1 } else { -1 };
 
         if let Some(row) = row {
             let mut i = x;

@@ -179,7 +179,8 @@ where
             Ctrl('c') => {
                 self.exit = true;
             }
-            Ctrl('d') => { // delete the line the cursor is on
+            Ctrl('d') => {
+                // delete the line the cursor is on
                 self.delete_line();
                 self.render();
             }
@@ -209,10 +210,12 @@ where
                 self.render();
             }
             Home => {
-                self.set_cursor(0, self.editor.cursor_pos().y());
+                self.go_to_line_home();
+                self.update_cursor_pos();
             }
             End => {
-                self.set_cursor(self.editor.line_len() as i32, self.editor.cursor_pos().y());
+                self.go_to_line_end();
+                self.update_cursor_pos();
             }
             _ => match self.edit_mode {
                 EditMode::Insert => self.process_insert_mode(event),
@@ -266,11 +269,7 @@ where
         // move the cursor to the beginning of the line and move down one
         let pos = self.editor.cursor_pos();
 
-        let delete_beginning = if pos.y() == 0 {
-            true
-        } else {
-            false
-        };
+        let delete_beginning = if pos.y() == 0 { true } else { false };
 
         self.editor.set_cursor((0, pos.y() + 1));
         if delete_beginning {
@@ -292,6 +291,14 @@ where
             Char('l') => self.move_cursor(1, 0),
             Char('w') => self.next_word(true),
             Char('b') => self.next_word(false),
+            Char('$') => {
+                self.go_to_line_end();
+                self.update_cursor_pos();
+            }
+            Char('0') => {
+                self.go_to_line_home();
+                self.update_cursor_pos();
+            }
             _ => {}
         }
     }
@@ -323,9 +330,30 @@ where
 
         use std::cmp::max;
 
-        let text = format!("help[F1] {}:{}:{}:{} // [{}] [{} mode]", l.x(), l.y(), r.width, r.height, self.log, mode);
-        let padding: String = std::iter::repeat(" ").take(max(r.width as usize - text.len(), 0)).collect();
+        let text = format!(
+            "help[F1] {}:{}:{}:{} // [{}] [{} mode]",
+            l.x(),
+            l.y(),
+            r.width,
+            r.height,
+            self.log,
+            mode
+        );
+        let padding: String = std::iter::repeat(" ")
+            .take(max(r.width as usize - text.len(), 0))
+            .collect();
         print!("{}{}", text, padding);
+    }
+
+    /// move to the beginning of the line
+    pub fn go_to_line_home(&mut self) {
+        self.editor.set_cursor((0, self.editor.cursor_pos().y()));
+    }
+
+    /// move cursor to the end of the line
+    pub fn go_to_line_end(&mut self) {
+        self.editor
+            .set_cursor((self.editor.line_len() as i32, self.editor.cursor_pos().y()));
     }
 
     /// render the screen to crossterm.
@@ -369,16 +397,12 @@ where
                 .unwrap();
 
             if self.cursor_hidden {
-                stdout()
-                    .execute(crossterm::cursor::Show)
-                    .unwrap();
+                stdout().execute(crossterm::cursor::Show).unwrap();
                 self.cursor_hidden = false;
             }
         } else {
             if !self.cursor_hidden {
-                stdout()
-                    .execute(crossterm::cursor::Hide)
-                    .unwrap();
+                stdout().execute(crossterm::cursor::Hide).unwrap();
                 self.cursor_hidden = true;
             }
         }
