@@ -2,6 +2,7 @@ use crate::clipboard::Clipboard;
 use crate::editor::{Editor, Vector2};
 use crate::renderer::{RenderOpts, Renderer, StringRenderer};
 
+
 use crossterm::{
     cursor::MoveTo,
     input::{EnableMouseCapture, InputEvent, KeyEvent, MouseEvent, SyncReader},
@@ -298,6 +299,24 @@ where
             Char('0') => {
                 self.go_to_line_home();
                 self.update_cursor_pos();
+            }
+            Char('_') => {
+                self.render_opts.scale += 0.1;
+                self.log = format!("set scale to {}: ", self.render_opts.scale);
+                self.render();
+            }
+            Char('+') => {
+                self.render_opts.scale -= 0.1;
+                self.log = format!("set scale to {}: ", self.render_opts.scale);
+                if self.render_opts.scale <= 0. {
+                    self.render_opts.scale = 0.;
+                }
+                self.render();
+            }
+            Char('=') => {
+                self.render_opts.scale = 1.;
+                self.log = "reset render scale to 1".to_string();
+                self.render();
             }
             _ => {}
         }
