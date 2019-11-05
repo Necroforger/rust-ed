@@ -1,13 +1,14 @@
 //! handles rendering an editor state
 
-use crate::editor::{Editor, Vector2};
+use crate::editor::Editor;
+use crate::vector::Vector2;
 
 /// contains parameters for rendering
 #[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {
-    pub view: Rect,
+    pub view: Rect<f32>,
 
-    // the scale at which to display the editor content
+    // scale at which to display editor content
     pub scale: f32,
 }
 
@@ -15,7 +16,7 @@ impl Default for RenderOpts {
     fn default() -> Self {
         Self {
             view: Rect {
-                location: Vector2(0, 0),
+                location: Vector2(0., 0.),
                 width: 0,
                 height: 0,
             },
@@ -25,28 +26,39 @@ impl Default for RenderOpts {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Rect {
-    pub location: Vector2,
+pub struct Rect<T> {
+    pub location: Vector2<T>,
     pub width: i32,
     pub height: i32,
 }
 
-impl Rect {
+impl<T> Rect<T>
+where
+    T: std::ops::Add<Output=T>
+        + num::cast::FromPrimitive
+        + std::cmp::PartialOrd
+        + Copy
+        + 'static
+{
     /// return the area of a rectangle
     pub fn area(&self) -> i32 {
         self.width * self.height
     }
 
-    pub fn x(&self) -> i32 {
+    pub fn x(&self) -> T {
         self.location.x()
     }
-    pub fn y(&self) -> i32 {
+    pub fn y(&self) -> T {
         self.location.y()
     }
 
-    pub fn contains(&self, p: Vector2) -> bool {
-        return (p.x() >= self.location.x() && p.x() < self.location.x() + self.width)
-            && (p.y() >= self.location.y() && p.y() < self.location.y() + self.height);
+    pub fn contains(&self, p: impl Into<Vector2<T>>) -> bool {
+        let p = p.into();
+        let width: T = T::from_i32(self.width).unwrap();
+        let height: T = T::from_i32(self.height).unwrap();
+
+        return (p.x() >= self.location.x() && p.x() < self.location.x() + width)
+            && (p.y() >= self.location.y() && p.y() < self.location.y() + height);
     }
 }
 
@@ -90,16 +102,16 @@ impl Renderer for StringRenderer {
         let height = if let Some(_) = self.line_hint {
             1
         } else {
-            opts.view.height
+            opts.view.height as i32
         };
 
         let y2 = if let Some(line) = self.line_hint {
             line
         } else {
-            opts.view.location.y()
+            opts.view.location.y().round() as i32
         };
 
-        let x2 = opts.view.location.x();
+        let x2 = opts.view.location.x().round() as i32;
 
         for y in y2..y2 + height {
             for x in x2..x2 + width {

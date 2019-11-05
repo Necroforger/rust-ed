@@ -6,6 +6,9 @@
 use std::collections::VecDeque;
 use std::iter::Iterator;
 
+use crate::vector::Vector2 as Vector2T;
+type Vector2 = Vector2T<i32>;
+
 /// Information for a particular character cell.
 /// Contains color values and other metadata
 #[derive(Copy, Clone)]
@@ -40,55 +43,6 @@ impl From<char> for CharCel {
 // TODO: create a trait for operations on a grid
 type Grid = Vec<Vec<CharCel>>;
 
-/// Very simple vector implementation
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Vector2(pub i32, pub i32);
-impl Vector2 {
-    /// Add two vectors together
-    pub fn add(&self, a: impl Into<Self>) -> Self {
-        let a = a.into();
-        Self(self.0 + a.0, self.1 + a.1)
-    }
-    pub fn x(&self) -> i32 {
-        self.0
-    }
-    pub fn y(&self) -> i32 {
-        self.1
-    }
-}
-
-impl From<&Vector2> for Vector2 {
-    fn from(a: &Vector2) -> Vector2 {
-        a.clone()
-    }
-}
-
-impl Eq for Vector2 {}
-
-impl PartialOrd for Vector2 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Vector2 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if self.eq(other) {
-            std::cmp::Ordering::Equal
-        } else if self.1 < other.1 || (self.1 == other.1 && self.0 < other.0) {
-            std::cmp::Ordering::Less
-        } else {
-            std::cmp::Ordering::Greater
-        }
-    }
-}
-
-impl From<(i32, i32)> for Vector2 {
-    fn from((a, b): (i32, i32)) -> Self {
-        Self(a, b)
-    }
-}
-
 /// Editor state information
 pub struct Editor {
     buffer: Grid,
@@ -122,7 +76,7 @@ impl Editor {
     pub fn new() -> Self {
         return Self {
             buffer: Grid::new(),
-            cursor: Vector2(0, 0),
+            cursor: Vector2T(0, 0),
             select_start: None,
             selecting: false,
         };
@@ -161,13 +115,13 @@ impl Editor {
 
     /// clamps a vector to valid grid coordinate
     pub fn clamp_vector(&self, v: Vector2) -> Vector2 {
-        let Vector2(x, y) = v;
+        let Vector2T(x, y) = v;
         let len = self.buffer.len() as i32;
 
         if y <= 0 {
-            self.clamp_to_column(Vector2(x, 0))
+            self.clamp_to_column(Vector2T(x, 0))
         } else if y >= len {
-            self.clamp_to_column(Vector2(x, len - 1))
+            self.clamp_to_column(Vector2T(x, len - 1))
         } else {
             self.clamp_to_column(v)
         }
@@ -178,22 +132,22 @@ impl Editor {
     /// # Panics
     /// row(y) index is outside the buffer length
     fn clamp_to_column(&self, v: Vector2) -> Vector2 {
-        let Vector2(x, y) = v;
+        let Vector2T(x, y) = v;
 
         let row = self.buffer.get(y as usize);
 
         // If there is no row at the given y value after clamping, the buffer is probably empty
         if row.is_none() {
-            return Vector2(0, 0);
+            return Vector2T(0, 0);
         }
 
         let row = row.unwrap();
         let len = row.len() as i32;
 
         if x < 0 {
-            Vector2(0, y)
+            Vector2T(0, y)
         } else if x >= len {
-            Vector2(len, y)
+            Vector2T(len, y)
         } else {
             v
         }
@@ -268,7 +222,7 @@ impl Editor {
 
             // move to the next row when the end of a line has been reached
             if position.0 as usize == row.len() {
-                position = position.add(&Vector2(0, 1));
+                position = position.add(&Vector2T(0, 1));
                 position.0 = 0;
                 data.push(CharCel::from('\n'));
                 continue;
@@ -277,7 +231,7 @@ impl Editor {
             data.push(row.get(position.0 as usize).unwrap().clone());
 
             // move to the next character
-            position = position.add(&Vector2(1, 0));
+            position = position.add(&Vector2T(1, 0));
         }
 
         data
@@ -318,9 +272,9 @@ impl Editor {
         let original_cursor = if original_cursor > start && original_cursor < end {
             start
         } else if original_cursor.1 == end.1 {
-            original_cursor.add(&Vector2(-cols, 0))
+            original_cursor.add(&Vector2T(-cols, 0))
         } else if original_cursor > end {
-            original_cursor.add(&Vector2(0, -rows))
+            original_cursor.add(&Vector2T(0, -rows))
         } else {
             original_cursor
         };
@@ -334,7 +288,7 @@ impl Editor {
     /// After writing, the cursor location will be moved `content.len()` characters to the right
     pub fn write(&mut self, content: char) {
         self.write_at(self.cursor.clone(), content);
-        self.move_cursor(Vector2(1, 0));
+        self.move_cursor(Vector2T(1, 0));
 
         if content == '\n' {
             // if a newline was inserted, move down to the beginning of next line
@@ -361,19 +315,19 @@ impl Editor {
             loop {
                 i += direction;
                 if i >= len {
-                    return Vector2(len, y);
+                    return Vector2T(len, y);
                 }
                 if i == -1 {
-                    return Vector2(0, y);
+                    return Vector2T(0, y);
                 }
                 let c = row.get(i as usize).unwrap().char;
                 if !is_alpha_numeric(c) {
-                    return Vector2(i as i32, y);
+                    return Vector2T(i as i32, y);
                 }
             }
         }
 
-        return Vector2(x + direction, y);
+        return Vector2T(x + direction, y);
     }
 
     /// Write a group of cells after `location`
@@ -384,7 +338,7 @@ impl Editor {
     /// the nearest valid position
     pub fn write_at(&mut self, location: impl Into<Vector2>, content: char) {
         let location = self.clamp_vector(location.into());
-        let Vector2(x, y) = location;
+        let Vector2T(x, y) = location;
 
         // retrieve or create the row at location `y`
         // a row should only need to be created when the vector is empty
@@ -444,7 +398,7 @@ impl Editor {
         // delete the character before the cursor
         let val = self.delete_at(self.cursor);
 
-        let Vector2(_, y) = self.cursor;
+        let Vector2T(_, y) = self.cursor;
 
         // a line has been deleted, move to the previous line
         if self.cursor.0 == 0 && y >= 1 {
@@ -459,7 +413,7 @@ impl Editor {
 
     /// Delete the cell at `location` it it exists
     pub fn delete_at(&mut self, location: impl Into<Vector2>) -> Option<CharCel> {
-        let Vector2(x, y) = self.clamp_vector(location.into());
+        let Vector2T(x, y) = self.clamp_vector(location.into());
 
         if let Some(row) = self.buffer.get_mut(y as usize) {
             if x == 0 && y >= 1 {
@@ -514,7 +468,7 @@ mod test {
         ];
 
         for (x1, y1, x2, y2, res) in test_cases {
-            assert_eq!(Vector2(x1, y1).cmp(&Vector2(x2, y2)), res);
+            assert_eq!(Vector2T(x1, y1).cmp(&Vector2T(x2, y2)), res);
         }
     }
 
@@ -598,7 +552,7 @@ mod test {
         assert_eq!(editor.to_string(), test_string);
 
         // move cursor two to the left and insert a character
-        editor.move_cursor(Vector2(-2, 0));
+        editor.move_cursor(Vector2T(-2, 0));
         editor.write('s');
 
         test_string.insert(test_string.len() - 2, 's');

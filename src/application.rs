@@ -1,7 +1,7 @@
 use crate::clipboard::Clipboard;
-use crate::editor::{Editor, Vector2};
+use crate::editor::{Editor};
+use crate::vector::Vector2 as Vector2;
 use crate::renderer::{RenderOpts, Renderer, StringRenderer};
-
 
 use crossterm::{
     cursor::MoveTo,
@@ -108,7 +108,7 @@ where
         macro_rules! to_editor_coords {
             ($x:ident, $y:ident) => {{
                 let Vector2(x2, y2) = self.render_opts.view.location;
-                ($x + x2, $y + y2)
+                ($x + x2.round() as i32, $y + y2.round() as i32)
             }};
         }
 
@@ -135,7 +135,7 @@ where
     }
 
     pub fn move_view(&mut self, x: i32, y: i32) {
-        self.render_opts.view.location = self.render_opts.view.location.add(Vector2(x, y));
+        self.render_opts.view.location = self.render_opts.view.location.add(Vector2(x as f32, y as f32));
         self.render();
     }
 
@@ -189,7 +189,7 @@ where
                 // bring the cursor to the top of the viewport
                 self.set_cursor(
                     0,
-                    self.render_opts.view.location.y() + (self.render_opts.view.height / 2),
+                    self.render_opts.view.location.y() as i32 + (self.render_opts.view.height / 2),
                 );
             }
             Ctrl('v') => {
@@ -202,7 +202,7 @@ where
             Ctrl('l') => {
                 // center the screen on the cursor
                 self.render_opts.view.location.1 =
-                    self.editor.cursor_pos().y() - (self.render_opts.view.height / 2);
+                    (self.editor.cursor_pos().y() - (self.render_opts.view.height / 2)) as f32;
                 self.render();
             }
             Ctrl('s') => {
@@ -402,14 +402,14 @@ where
     }
 
     pub fn update_cursor_pos(&mut self) {
-        if self.render_opts.view.contains(self.editor.cursor_pos()) {
+        if self.render_opts.view.contains(Vector2::from(self.editor.cursor_pos())) {
             // place the cursor over the current character
             let x = self.render_opts.view.x();
             let y = self.render_opts.view.y();
 
             // obtain the position of the cursor relative to the screen
-            let real_x = self.editor.cursor_pos().x() - x;
-            let real_y = self.editor.cursor_pos().y() - y;
+            let real_x = self.editor.cursor_pos().x() - x.round() as i32;
+            let real_y = self.editor.cursor_pos().y() - y.round() as i32;
 
             stdout()
                 .execute(MoveTo(real_x as u16, real_y as u16))
@@ -430,8 +430,8 @@ where
     /// render only a single line of the editor
     pub fn render_line(&mut self, line: i32) {
         let ycp = line;
-        let y = ycp - self.render_opts.view.location.y();
-        if self.render_opts.view.contains(Vector2(0, ycp)) {
+        let y = ycp as f32 - self.render_opts.view.location.y();
+        if self.render_opts.view.contains(Vector2::from(Vector2(0, ycp))) {
             std::io::stdout().execute(MoveTo(0, y as u16)).unwrap();
             let text = StringRenderer {
                 line_hint: Some(line),
@@ -447,7 +447,7 @@ where
 
             // only render changes if the current view could be affected by the edits.
             // this should be changed to apply only when a new line has been inserted.
-            if Vector2(0, ycp) < self.render_opts.view.location {
+            if Vector2(0, ycp) < Vector2::from(self.render_opts.view.location) {
                 self.render();
             }
         }
