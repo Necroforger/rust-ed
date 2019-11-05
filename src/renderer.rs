@@ -6,10 +6,10 @@ use crate::vector::Vector2;
 /// contains parameters for rendering
 #[derive(Clone, Copy, Debug)]
 pub struct RenderOpts {
-    pub view: Rect<f32>,
+    pub view: Rect<f64>,
 
     // scale at which to display editor content
-    pub scale: f32,
+    pub scale: f64,
 }
 
 impl Default for RenderOpts {
@@ -115,8 +115,8 @@ impl Renderer for StringRenderer {
 
         for y in y2..y2 + height {
             for x in x2..x2 + width {
-                let x = (x as f32 * opts.scale) as i32;
-                let y = (y as f32 * opts.scale) as i32;
+                let x = (x as f64 * opts.scale) as i32;
+                let y = (y as f64 * opts.scale) as i32;
                 if let Some(cell) = editor.get_cell((x, y)) {
                     screen.push(cell.char);
                 } else if self.break_on_line_end && x > 0 {

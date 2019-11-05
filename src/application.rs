@@ -135,7 +135,7 @@ where
     }
 
     pub fn move_view(&mut self, x: i32, y: i32) {
-        self.render_opts.view.location = self.render_opts.view.location.add(Vector2(x as f32, y as f32));
+        self.render_opts.view.location = self.render_opts.view.location.add(Vector2(x as f64, y as f64));
         self.render();
     }
 
@@ -202,7 +202,7 @@ where
             Ctrl('l') => {
                 // center the screen on the cursor
                 self.render_opts.view.location.1 =
-                    (self.editor.cursor_pos().y() - (self.render_opts.view.height / 2)) as f32;
+                    (self.editor.cursor_pos().y() - (self.render_opts.view.height / 2)) as f64;
                 self.render();
             }
             Ctrl('s') => {
@@ -261,7 +261,7 @@ where
         let pos = self.editor.cursor_pos();
         // move cursor to the end of the line
         // delete characters until the beginning of the line has been reached
-        self.set_cursor(self.editor.line_len() as i32, self.editor.cursor_pos().y());
+        self.go_to_line_end();
         while let Some(c) = self.editor.delete() {
             if c.char == '\n' {
                 break;
@@ -302,7 +302,18 @@ where
             }
             Char('_') => {
                 self.render_opts.scale += 0.1;
-                self.log = format!("set scale to {}: ", self.render_opts.scale);
+
+                // shift the renderer window to keep it's position
+                let l = self.render_opts.view.location;
+                let dx = l.x() as f64 * 0.9;
+                let dy = l.y() as f64 * 0.9;
+
+                self.render_opts.view.location = Vector2(dx, dy);
+                self.log = format!(
+                    "set scale to {}: position: {}:{}",
+                    self.render_opts.scale, dx, dy
+                );
+
                 self.render();
             }
             Char('+') => {
@@ -310,6 +321,17 @@ where
                 self.log = format!("set scale to {}: ", self.render_opts.scale);
                 if self.render_opts.scale <= 0. {
                     self.render_opts.scale = 0.;
+                } else {
+                    // shift the renderer window to keep it's position
+                    let l = self.render_opts.view.location;
+                    let dx = l.x() as f64 * 1.1;
+                    let dy = l.y() as f64 * 1.1;
+
+                    self.render_opts.view.location = Vector2(dx, dy);
+                    self.log = format!(
+                        "set scale to {}: position: {}:{}",
+                        self.render_opts.scale, dx, dy
+                    );
                 }
                 self.render();
             }
@@ -350,11 +372,12 @@ where
         use std::cmp::max;
 
         let text = format!(
-            "help[F1] {}:{}:{}:{} // [{}] [{} mode]",
+            "help[F1] {}:{}:{}:{}/{} // [{}] [{} mode]",
             l.x(),
             l.y(),
             r.width,
             r.height,
+            self.render_opts.scale,
             self.log,
             mode
         );
@@ -404,12 +427,12 @@ where
     pub fn update_cursor_pos(&mut self) {
         if self.render_opts.view.contains(Vector2::from(self.editor.cursor_pos())) {
             // place the cursor over the current character
-            let x = self.render_opts.view.x();
-            let y = self.render_opts.view.y();
+            let x = self.render_opts.view.x().round();
+            let y = self.render_opts.view.y().round();
 
             // obtain the position of the cursor relative to the screen
-            let real_x = self.editor.cursor_pos().x() - x.round() as i32;
-            let real_y = self.editor.cursor_pos().y() - y.round() as i32;
+            let real_x = self.editor.cursor_pos().x() - x as i32;
+            let real_y = self.editor.cursor_pos().y() - y as i32;
 
             stdout()
                 .execute(MoveTo(real_x as u16, real_y as u16))
@@ -430,7 +453,7 @@ where
     /// render only a single line of the editor
     pub fn render_line(&mut self, line: i32) {
         let ycp = line;
-        let y = ycp as f32 - self.render_opts.view.location.y();
+        let y = ycp as f64 - self.render_opts.view.location.y().round();
         if self.render_opts.view.contains(Vector2::from(Vector2(0, ycp))) {
             std::io::stdout().execute(MoveTo(0, y as u16)).unwrap();
             let text = StringRenderer {
