@@ -16,11 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let filepath = filepath.unwrap_or("editor_content.txt".into());
 
-    let mut app = Application::new(
-        Editor::from(text),
-        OsClipboard::new()?,
-        filepath,
-    );
+    let mut app = Application::new(Editor::from(text), OsClipboard::new()?, filepath);
 
     app.run()?;
 

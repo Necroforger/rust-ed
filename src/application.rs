@@ -1,7 +1,7 @@
 use crate::clipboard::Clipboard;
-use crate::editor::{Editor};
-use crate::vector::Vector2 as Vector2;
+use crate::editor::Editor;
 use crate::renderer::{RenderOpts, Renderer, StringRenderer};
+use crate::vector::Vector2;
 
 use crossterm::{
     cursor::MoveTo,
@@ -138,7 +138,11 @@ where
     }
 
     pub fn move_view(&mut self, x: i32, y: i32) {
-        self.render_opts.view.location = self.render_opts.view.location.add(Vector2(x as f64, y as f64));
+        self.render_opts.view.location = self
+            .render_opts
+            .view
+            .location
+            .add(Vector2(x as f64, y as f64));
         self.render();
     }
 
@@ -448,7 +452,11 @@ where
     }
 
     pub fn update_cursor_pos(&mut self) {
-        if self.render_opts.view.contains(Vector2::from(self.editor.cursor_pos())) {
+        if self
+            .render_opts
+            .view
+            .contains(Vector2::from(self.editor.cursor_pos()))
+        {
             // place the cursor over the current character
             let x = self.render_opts.view.x().round();
             let y = self.render_opts.view.y().round();
@@ -478,7 +486,11 @@ where
     pub fn render_line(&mut self, line: i32) {
         let ycp = line;
         let y = ycp as f64 - self.render_opts.view.location.y().round();
-        if self.render_opts.view.contains(Vector2::from(Vector2(0, ycp))) {
+        if self
+            .render_opts
+            .view
+            .contains(Vector2::from(Vector2(0, ycp)))
+        {
             std::io::stdout().execute(MoveTo(0, y as u16)).unwrap();
             let text = StringRenderer {
                 line_hint: Some(line),

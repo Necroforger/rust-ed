@@ -1,10 +1,9 @@
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector2<T>(pub T, pub T);
 
 impl<T> Vector2<T>
 where
-    T: std::ops::Add<Output=T> + Copy + 'static,
+    T: std::ops::Add<Output = T> + Copy + 'static,
 {
     pub fn add(&self, a: impl Into<Self>) -> Self {
         let a = a.into();
@@ -13,13 +12,17 @@ where
 
     pub fn from<U>(Vector2(a, b): Vector2<U>) -> Self
     where
-        U: num::cast::AsPrimitive<T>
+        U: num::cast::AsPrimitive<T>,
     {
         Self(a.as_(), b.as_())
     }
 
-    pub fn x(&self) -> T { self.0 }
-    pub fn y(&self) -> T { self.1 }
+    pub fn x(&self) -> T {
+        self.0
+    }
+    pub fn y(&self) -> T {
+        self.1
+    }
 }
 
 impl<T: PartialEq> Eq for Vector2<T> {}
