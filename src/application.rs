@@ -24,6 +24,8 @@ pub struct Application<T>
 where
     T: Clipboard,
 {
+    // path to save the file to
+    pub filepath: String,
     pub editor: Editor,
     pub clipboard: T,
 
@@ -51,7 +53,7 @@ impl<T> Application<T>
 where
     T: Clipboard,
 {
-    pub fn new(editor: Editor, clipboard: T) -> Application<T> {
+    pub fn new(editor: Editor, clipboard: T, filepath: impl Into<String>) -> Application<T> {
         Application {
             editor,
             clipboard,
@@ -64,6 +66,7 @@ where
             edit_mode: EditMode::Insert,
 
             cursor_hidden: false,
+            filepath: filepath.into(),
         }
     }
 
@@ -207,7 +210,7 @@ where
             }
             Ctrl('s') => {
                 self.save_to_file();
-                self.log = "saved to editor_contents.txt".to_string();
+                self.log = format!("saved to {}", self.filepath);
                 self.render();
             }
             Home => {
@@ -286,6 +289,26 @@ where
                 self.edit_mode = EditMode::Insert;
                 self.render();
             }
+            Char('o') => {
+                self.go_to_line_end();
+                self.editor.write('\n');
+                self.edit_mode = EditMode::Insert;
+                self.render();
+            }
+            Char('O') => {
+                self.move_cursor(0, -1);
+                self.go_to_line_end();
+                self.editor.write('\n');
+                self.edit_mode = EditMode::Insert;
+                self.render();
+            }
+
+            // scroll screen faster
+            Char('J') => self.move_view(0, 5),
+            Char('K') => self.move_view(0, -5),
+            Char('H') => self.move_view(-5, 0),
+            Char('L') => self.move_view(5, 0),
+
             Char('j') => self.move_cursor(0, 1),
             Char('k') => self.move_cursor(0, -1),
             Char('h') => self.move_cursor(-1, 0),
@@ -352,7 +375,7 @@ where
 
     /// save the editor contents to a file
     pub fn save_to_file(&self) {
-        std::fs::write("editor_contents.txt", self.editor.to_string()).unwrap();
+        std::fs::write(&self.filepath, self.editor.to_string()).unwrap();
     }
 
     pub fn render_status_bar(&mut self) {
@@ -443,6 +466,7 @@ where
                 self.cursor_hidden = false;
             }
         } else {
+            stdout().execute(crossterm::cursor::MoveTo(0, 0)).unwrap();
             if !self.cursor_hidden {
                 stdout().execute(crossterm::cursor::Hide).unwrap();
                 self.cursor_hidden = true;
