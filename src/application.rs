@@ -1,5 +1,5 @@
 use crate::clipboard::Clipboard;
-use crate::editor::Editor;
+use crate::editor::{Editor, Position};
 use crate::renderer::{RenderOpts, Renderer, StringRenderer};
 use crate::vector::Vector2;
 
@@ -13,10 +13,19 @@ use crossterm::{
 
 use std::io::{stdout, Write};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+pub enum Action {
+    SaveFileAs,
+}
+
+#[derive(Debug, Clone)]
 pub enum EditMode {
     Command,
     Insert,
+
+    // prompt user input. store the edit mode to return to when done, and an optional action to
+    // execute
+    Prompt(Box<EditMode>, Option<Action>),
 }
 
 /// handles the main application logic
@@ -38,6 +47,10 @@ where
 
     // current edit mode
     pub edit_mode: EditMode,
+
+    // buffer to store the results of a prompt in
+    prompt_query: String,
+    prompt_buffer: Editor,
 
     // only render a particular line
     render_line_hint: Option<i32>,
@@ -63,6 +76,9 @@ where
 
             render_line_hint: None,
             render_break_line_hint: false,
+
+            prompt_query: String::new(),
+            prompt_buffer: Editor::new(),
             edit_mode: EditMode::Insert,
 
             cursor_hidden: false,
@@ -100,6 +116,44 @@ where
             InputEvent::Mouse(event) => self.process_mouse_event(event),
             _ => {}
         }
+    }
+
+    pub fn process_prompt_mode(&mut self, event: KeyEvent, action: Option<Action>, edit_mode: EditMode) {
+        use KeyEvent::*;
+        match event {
+            Char(x) => {
+                self.prompt_buffer.write(x);
+                self.render_status_bar();
+            }
+            Backspace => {
+                self.prompt_buffer.delete();
+                self.render_status_bar();
+            }
+            // when escape is pressed, cancel
+            Esc => {
+                // when done, clear the prompt
+                self.prompt_buffer = Editor::new();
+                self.edit_mode = edit_mode;
+            }
+            Enter =>  {
+                match action {
+                    Some(action) => match action {
+                        Action::SaveFileAs => {
+                            self.save_to_file(self.prompt_buffer.to_string());
+                        }
+//                        _ => {}
+                    },
+                    None => {}
+
+                }
+
+                // when done, clear the prompt
+                self.prompt_buffer = Editor::new();
+                self.edit_mode = edit_mode;
+            },
+            _ => {}
+        }
+
     }
 
     pub fn process_mouse_event(&mut self, event: MouseEvent) {
@@ -213,8 +267,19 @@ where
                 self.render();
             }
             Ctrl('s') => {
-                self.save_to_file();
+                self.save_to_file(&self.filepath);
                 self.log = format!("saved to {}", self.filepath);
+                self.render();
+            }
+            Ctrl('x') => {
+                // save file as
+                self.edit_mode =
+                    EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::SaveFileAs));
+                self.log = "save to file: ".into();
+
+                // pre-fill the prompt with the current file name
+                self.prompt_buffer = Editor::from(&self.filepath);
+                self.prompt_buffer.move_cursor_to(Position::LineEnd);
                 self.render();
             }
             Home => {
@@ -225,9 +290,12 @@ where
                 self.go_to_line_end();
                 self.update_cursor_pos();
             }
-            _ => match self.edit_mode {
+            _ => match self.edit_mode.clone() {
                 EditMode::Insert => self.process_insert_mode(event),
                 EditMode::Command => self.process_command_mode(event),
+                EditMode::Prompt(mode, action) => {
+                    self.process_prompt_mode(event, action.clone(),  *mode.clone());
+                }
             },
         }
     }
@@ -336,16 +404,10 @@ where
                 let dy = l.y() as f64 * 0.9;
 
                 self.render_opts.view.location = Vector2(dx, dy);
-                self.log = format!(
-                    "set scale to {}: position: {}:{}",
-                    self.render_opts.scale, dx, dy
-                );
-
                 self.render();
             }
             Char('+') => {
                 self.render_opts.scale -= 0.1;
-                self.log = format!("set scale to {}: ", self.render_opts.scale);
                 if self.render_opts.scale <= 0. {
                     self.render_opts.scale = 0.;
                 } else {
@@ -355,10 +417,6 @@ where
                     let dy = l.y() as f64 * 1.1;
 
                     self.render_opts.view.location = Vector2(dx, dy);
-                    self.log = format!(
-                        "set scale to {}: position: {}:{}",
-                        self.render_opts.scale, dx, dy
-                    );
                 }
                 self.render();
             }
@@ -378,8 +436,8 @@ where
     }
 
     /// save the editor contents to a file
-    pub fn save_to_file(&self) {
-        std::fs::write(&self.filepath, self.editor.to_string()).unwrap();
+    pub fn save_to_file(&self, filename: impl AsRef<std::path::Path>) {
+        std::fs::write(filename, self.editor.to_string()).unwrap();
     }
 
     pub fn render_status_bar(&mut self) {
@@ -387,27 +445,25 @@ where
             .execute(MoveTo(0, (self.render_opts.view.height + 1) as u16))
             .unwrap();
 
-        use EditMode::*;
+        //        use EditMode::*;
 
         let l = self.render_opts.view.location;
         let r = self.render_opts.view;
-        let mode = match self.edit_mode {
-            Insert => "insert",
-            Command => "command",
-        };
 
         use std::cmp::max;
 
         let text = format!(
-            "help[F1] {}:{}:{}:{}/{} // [{}] [{} mode]",
-            l.x(),
-            l.y(),
-            r.width,
-            r.height,
-            self.render_opts.scale,
-            self.log,
-            mode
+            "help[F1] {x:.2}:{y:.2}:{w}:{h}/{scale:.2}//[{log}][{mode:?}]: {prompt}",
+            x = l.x(),
+            y = l.y(),
+            w = r.width,
+            h = r.height,
+            scale = self.render_opts.scale,
+            log = self.log,
+            mode = self.edit_mode,
+            prompt = self.prompt_buffer,
         );
+
         let padding: String = std::iter::repeat(" ")
             .take(max(r.width as usize - text.len(), 0))
             .collect();
@@ -519,4 +575,10 @@ where
         self.render_opts.view.height = rows as i32 - 1;
         Ok(())
     }
+}
+
+/// find the new location of an editor coordinate when applied to a different scale
+pub fn transform_view_coordinates(p: Vector2<f64>, scale: f64, scale2: f64) -> Vector2<f64> {
+    let real = p.scalar(scale);
+    real.scalar_div(scale2)
 }

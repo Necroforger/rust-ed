@@ -3,11 +3,33 @@ pub struct Vector2<T>(pub T, pub T);
 
 impl<T> Vector2<T>
 where
-    T: std::ops::Add<Output = T> + Copy + 'static,
+    T: std::ops::Add<Output = T>
+        + std::ops::Mul<Output = T>
+        + std::ops::Div<Output = T>
+        + Copy
+        + 'static,
 {
     pub fn add(&self, a: impl Into<Self>) -> Self {
         let a = a.into();
         Self(self.0 + a.0, self.1 + a.1)
+    }
+
+    pub fn scalar(&self, a: T) -> Self {
+        Self(self.0 * a, self.0 * a)
+    }
+
+    pub fn scalar_div(&self, a: T) -> Self {
+        Self(self.0 / a, self.0 / a)
+    }
+
+    pub fn div(&self, other: impl Into<Self>) -> Self {
+        let other = other.into();
+        Self(self.0 / other.0, self.1 / other.1)
+    }
+
+    pub fn mul(&self, other: impl Into<Self>) -> Self {
+        let other = other.into();
+        Self(self.0 * other.0, self.1 * other.1)
     }
 
     pub fn from<U>(Vector2(a, b): Vector2<U>) -> Self

@@ -9,6 +9,20 @@ use std::iter::Iterator;
 use crate::vector::Vector2 as Vector2T;
 type Vector2 = Vector2T<i32>;
 
+/// relative positions in the editor
+pub enum Position {
+    LineEnd,
+    LineBeginning,
+    End,
+    Beginning,
+    NextWord,
+    PreviousWord,
+    NextLine,
+    PreviousLine,
+    Point(i32, i32),
+    Towards(i32, i32),
+}
+
 /// Information for a particular character cell.
 /// Contains color values and other metadata
 #[derive(Copy, Clone)]
@@ -151,6 +165,53 @@ impl Editor {
         } else {
             v
         }
+    }
+
+    pub fn move_cursor_to(&mut self, position: Position) {
+        use Position::*;
+
+        match position {
+            LineEnd => {
+                let l = self.line_len();
+                self.move_cursor_to(Point(l as i32, self.current_line()));
+            }
+            LineBeginning => {
+                self.move_cursor_to(Point(0, self.cursor.y()));
+            }
+            Point(x, y)=> {
+                self.set_cursor((x, y));
+            }
+            Towards(x, y) => {
+                self.move_cursor((x, y));
+            }
+            Beginning => {
+                self.move_cursor_to(Point(0, 0));
+            }
+            End => {
+                let y = self.buffer.len();
+                let len = self.buffer.get(y-1).unwrap().len();
+                self.move_cursor_to(Point(len as i32, y as i32));
+            }
+            NextLine => {
+                self.move_cursor_to(Towards(0, 1));
+            }
+            PreviousLine => {
+                self.move_cursor_to(Towards(0, -1));
+            }
+            NextWord => {
+                let loc = self.next_word(self.cursor, true);
+                self.move_cursor_to(Point(loc.x(), loc.y()))
+            }
+            PreviousWord => {
+                let loc = self.next_word(self.cursor, false);
+                self.move_cursor_to(Point(loc.x(), loc.y()))
+            }
+        }
+    }
+
+    /// return the current line number
+    pub fn current_line(&self) -> i32 {
+        self.cursor.y()
     }
 
     /// begin selecting from the current location of the cursor

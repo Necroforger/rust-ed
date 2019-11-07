@@ -35,6 +35,11 @@ pub struct Rect<T> {
 impl<T> Rect<T>
 where
     T: std::ops::Add<Output = T> + num::cast::FromPrimitive + std::cmp::PartialOrd + Copy + 'static,
+    T: std::ops::Add<Output = T>
+        + std::ops::Mul<Output = T>
+        + std::ops::Div<Output = T>
+        + Copy
+        + 'static,
 {
     /// return the area of a rectangle
     pub fn area(&self) -> i32 {
