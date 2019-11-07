@@ -309,7 +309,7 @@ where
                 // save file as
                 self.edit_mode =
                     EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::SaveFileAs));
-                self.log = "save to file: ".into();
+                self.log = "save as: ".into();
 
                 // pre-fill the prompt with the current file name
                 self.prompt_buffer = Editor::from(&self.filepath);
