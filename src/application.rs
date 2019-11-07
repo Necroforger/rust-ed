@@ -12,6 +12,7 @@ use crossterm::{
 };
 
 use std::io::{stdout, Write};
+use std::fmt::{Formatter, Error};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
@@ -26,6 +27,17 @@ pub enum EditMode {
     // prompt user input. store the edit mode to return to when done, and an optional action to
     // execute
     Prompt(Box<EditMode>, Option<Action>),
+}
+
+impl std::fmt::Display for EditMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        use EditMode::*;
+        write!(f, "{}", match self {
+            Command => "command",
+            Insert => "insert",
+            Prompt(_, _) => "prompt",
+        })
+    }
 }
 
 /// handles the main application logic
@@ -120,36 +132,50 @@ where
 
     pub fn process_prompt_mode(&mut self, event: KeyEvent, action: Option<Action>, edit_mode: EditMode) {
         use KeyEvent::*;
+
+        macro_rules! update {
+            () => {
+                self.render_status_bar();
+                self.update_cursor_pos();
+            }
+        }
+
+        macro_rules! reset {
+            () => {
+                self.prompt_buffer = Editor::new();
+                self.edit_mode = edit_mode;
+            }
+        }
+
         match event {
             Char(x) => {
                 self.prompt_buffer.write(x);
-                self.render_status_bar();
+                update!();
             }
             Backspace => {
                 self.prompt_buffer.delete();
-                self.render_status_bar();
+                update!();
             }
             // when escape is pressed, cancel
             Esc => {
-                // when done, clear the prompt
-                self.prompt_buffer = Editor::new();
-                self.edit_mode = edit_mode;
+                reset!();
+                update!();
             }
             Enter =>  {
                 match action {
                     Some(action) => match action {
                         Action::SaveFileAs => {
-                            self.save_to_file(self.prompt_buffer.to_string());
+                            let text = self.prompt_buffer.to_string();
+                            self.filepath = text.clone();
+                            self.log = format!("saved to file: {}", text);
+                            self.save_to_file(text);
                         }
-//                        _ => {}
                     },
                     None => {}
-
                 }
-
                 // when done, clear the prompt
-                self.prompt_buffer = Editor::new();
-                self.edit_mode = edit_mode;
+                reset!();
+                update!();
             },
             _ => {}
         }
@@ -431,8 +457,8 @@ where
 
     /// move the cursor to the next word
     pub fn next_word(&mut self, forward: bool) {
-        let pos = self.editor.next_word(self.editor.cursor_pos(), forward);
-        self.set_cursor(pos.x(), pos.y());
+        self.editor.move_cursor_to(if forward { Position::NextWord } else { Position::PreviousWord });
+        self.update_cursor_pos();
     }
 
     /// save the editor contents to a file
@@ -452,33 +478,37 @@ where
 
         use std::cmp::max;
 
-        let text = format!(
-            "help[F1] {x:.2}:{y:.2}:{w}:{h}/{scale:.2}//[{log}][{mode:?}]: {prompt}",
+        let mut text = format!(
+            "help[F1] {x:.2}:{y:.2}:{w}:{h}/{scale:.2}//[{mode}][{log}]: {prompt}",
             x = l.x(),
             y = l.y(),
             w = r.width,
             h = r.height,
             scale = self.render_opts.scale,
             log = self.log,
-            mode = self.edit_mode,
+            mode = self.edit_mode.to_string().to_uppercase(),
             prompt = self.prompt_buffer,
         );
+
+        if text.len() > r.width as usize {
+            text = text[..r.width as usize].to_string()
+        }
 
         let padding: String = std::iter::repeat(" ")
             .take(max(r.width as usize - text.len(), 0))
             .collect();
+
         print!("{}{}", text, padding);
     }
 
     /// move to the beginning of the line
     pub fn go_to_line_home(&mut self) {
-        self.editor.set_cursor((0, self.editor.cursor_pos().y()));
+        self.editor.move_cursor_to(Position::LineBeginning);
     }
 
     /// move cursor to the end of the line
     pub fn go_to_line_end(&mut self) {
-        self.editor
-            .set_cursor((self.editor.line_len() as i32, self.editor.cursor_pos().y()));
+        self.editor.move_cursor_to(Position::LineEnd);
     }
 
     /// render the screen to crossterm.
