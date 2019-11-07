@@ -178,7 +178,7 @@ impl Editor {
             LineBeginning => {
                 self.move_cursor_to(Point(0, self.cursor.y()));
             }
-            Point(x, y)=> {
+            Point(x, y) => {
                 self.set_cursor((x, y));
             }
             Towards(x, y) => {
@@ -189,7 +189,7 @@ impl Editor {
             }
             End => {
                 let y = self.buffer.len();
-                let len = self.buffer.get(y-1).unwrap().len();
+                let len = self.buffer.get(y - 1).unwrap().len();
                 self.move_cursor_to(Point(len as i32, y as i32));
             }
             NextLine => {

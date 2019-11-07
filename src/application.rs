@@ -11,8 +11,8 @@ use crossterm::{
     ExecutableCommand,
 };
 
+use std::fmt::{Error, Formatter};
 use std::io::{stdout, Write};
-use std::fmt::{Formatter, Error};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
@@ -32,11 +32,15 @@ pub enum EditMode {
 impl std::fmt::Display for EditMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         use EditMode::*;
-        write!(f, "{}", match self {
-            Command => "command",
-            Insert => "insert",
-            Prompt(_, _) => "prompt",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Command => "command",
+                Insert => "insert",
+                Prompt(_, _) => "prompt",
+            }
+        )
     }
 }
 
@@ -130,21 +134,26 @@ where
         }
     }
 
-    pub fn process_prompt_mode(&mut self, event: KeyEvent, action: Option<Action>, edit_mode: EditMode) {
+    pub fn process_prompt_mode(
+        &mut self,
+        event: KeyEvent,
+        action: Option<Action>,
+        edit_mode: EditMode,
+    ) {
         use KeyEvent::*;
 
         macro_rules! update {
             () => {
                 self.render_status_bar();
                 self.update_cursor_pos();
-            }
+            };
         }
 
         macro_rules! reset {
             () => {
                 self.prompt_buffer = Editor::new();
                 self.edit_mode = edit_mode;
-            }
+            };
         }
 
         match event {
@@ -161,7 +170,7 @@ where
                 reset!();
                 update!();
             }
-            Enter =>  {
+            Enter => {
                 match action {
                     Some(action) => match action {
                         Action::SaveFileAs => {
@@ -176,10 +185,9 @@ where
                 // when done, clear the prompt
                 reset!();
                 update!();
-            },
+            }
             _ => {}
         }
-
     }
 
     pub fn process_mouse_event(&mut self, event: MouseEvent) {
@@ -320,7 +328,7 @@ where
                 EditMode::Insert => self.process_insert_mode(event),
                 EditMode::Command => self.process_command_mode(event),
                 EditMode::Prompt(mode, action) => {
-                    self.process_prompt_mode(event, action.clone(),  *mode.clone());
+                    self.process_prompt_mode(event, action.clone(), *mode.clone());
                 }
             },
         }
@@ -457,7 +465,11 @@ where
 
     /// move the cursor to the next word
     pub fn next_word(&mut self, forward: bool) {
-        self.editor.move_cursor_to(if forward { Position::NextWord } else { Position::PreviousWord });
+        self.editor.move_cursor_to(if forward {
+            Position::NextWord
+        } else {
+            Position::PreviousWord
+        });
         self.update_cursor_pos();
     }
 
