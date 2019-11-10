@@ -436,7 +436,6 @@ where
                 let c2 = transform_view_coordinates(c1, original_scale, self.render_opts.scale);
                 let origin = c2.sub(self.render_opts.view.center());
 
-                self.log = format!("origin: {origin:?}, c1: {c1:?}, c2: {c2:?}", c1=c1, c2=c2, origin=origin);
                 self.render_opts.view.location = origin;
 
                 self.render();
@@ -457,7 +456,17 @@ where
                 self.render();
             }
             Char('=') => {
+
+                let original_scale = self.render_opts.scale;
+
                 self.render_opts.scale = 1.;
+
+                let c1 = self.render_opts.view.center_point();
+                let c2 = transform_view_coordinates(c1, original_scale, self.render_opts.scale);
+                let origin = c2.sub(self.render_opts.view.center());
+
+                self.render_opts.view.location = origin;
+
                 self.log = "reset render scale to 1".to_string();
                 self.render();
             }
