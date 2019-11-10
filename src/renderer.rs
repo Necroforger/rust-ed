@@ -38,6 +38,7 @@ where
     T: std::ops::Add<Output = T>
         + std::ops::Mul<Output = T>
         + std::ops::Div<Output = T>
+        + std::ops::Sub<Output = T>
         + Copy
         + 'static,
 {
@@ -60,6 +61,19 @@ where
 
         return (p.x() >= self.location.x() && p.x() < self.location.x() + width)
             && (p.y() >= self.location.y() && p.y() < self.location.y() + height);
+    }
+
+    /// return the center of the view relative to the width and height
+    pub fn center(&self) -> Vector2<T> {
+        Vector2(
+            T::from_i32(self.width).unwrap() / T::from_i32(2).unwrap(),
+            T::from_i32(self.height).unwrap() / T::from_i32(2).unwrap(),
+        )
+    }
+
+    /// center point relative to the view location
+    pub fn center_point(&self) -> Vector2<T> {
+        self.location.add(self.center())
     }
 }
 

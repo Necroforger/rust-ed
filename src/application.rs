@@ -65,7 +65,6 @@ where
     pub edit_mode: EditMode,
 
     // buffer to store the results of a prompt in
-    prompt_query: String,
     prompt_buffer: Editor,
 
     // only render a particular line
@@ -93,7 +92,6 @@ where
             render_line_hint: None,
             render_break_line_hint: false,
 
-            prompt_query: String::new(),
             prompt_buffer: Editor::new(),
             edit_mode: EditMode::Insert,
 
@@ -430,27 +428,31 @@ where
                 self.update_cursor_pos();
             }
             Char('_') => {
+                let original_scale = self.render_opts.scale;
                 self.render_opts.scale += 0.1;
 
-                // shift the renderer window to keep it's position
-                let l = self.render_opts.view.location;
-                let dx = l.x() as f64 * 0.9;
-                let dy = l.y() as f64 * 0.9;
+                // find the new center point
+                let c1 = self.render_opts.view.center_point();
+                let c2 = transform_view_coordinates(c1, original_scale, self.render_opts.scale);
+                let origin = c2.sub(self.render_opts.view.center());
 
-                self.render_opts.view.location = Vector2(dx, dy);
+                self.log = format!("origin: {origin:?}, c1: {c1:?}, c2: {c2:?}", c1=c1, c2=c2, origin=origin);
+                self.render_opts.view.location = origin;
+
                 self.render();
             }
             Char('+') => {
+                let original_scale = self.render_opts.scale;
                 self.render_opts.scale -= 0.1;
+
                 if self.render_opts.scale <= 0. {
                     self.render_opts.scale = 0.;
                 } else {
                     // shift the renderer window to keep it's position
-                    let l = self.render_opts.view.location;
-                    let dx = l.x() as f64 * 1.1;
-                    let dy = l.y() as f64 * 1.1;
-
-                    self.render_opts.view.location = Vector2(dx, dy);
+                    let c1 = self.render_opts.view.center_point();
+                    let c2 = transform_view_coordinates(c1, original_scale, self.render_opts.scale);
+                    let origin = c2.sub(self.render_opts.view.center());
+                    self.render_opts.view.location = origin;
                 }
                 self.render();
             }
