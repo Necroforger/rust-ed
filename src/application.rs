@@ -456,7 +456,6 @@ where
                 self.render();
             }
             Char('=') => {
-
                 let original_scale = self.render_opts.scale;
 
                 self.render_opts.scale = 1.;
@@ -493,8 +492,6 @@ where
         stdout()
             .execute(MoveTo(0, (self.render_opts.view.height + 1) as u16))
             .unwrap();
-
-        //        use EditMode::*;
 
         let l = self.render_opts.view.location;
         let r = self.render_opts.view;
