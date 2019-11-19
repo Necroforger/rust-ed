@@ -216,11 +216,27 @@ where
     pub fn set_cursor(&mut self, x: i32, y: i32) {
         self.editor.set_cursor((x, y));
         self.update_cursor_pos();
+
+        if self.editor.selecting {
+            self.render_line_hint = Some(self.editor.cursor_pos().y());
+            self.render();
+
+            self.render_line_hint = Some(self.editor.cursor_pos().y() - y);
+            self.render();
+        }
     }
 
     pub fn move_cursor(&mut self, x: i32, y: i32) {
         self.editor.move_cursor((x, y));
         self.update_cursor_pos();
+
+        if self.editor.selecting {
+            self.render_line_hint = Some(self.editor.cursor_pos().y());
+            self.render();
+
+            self.render_line_hint = Some(self.editor.cursor_pos().y() - y);
+            self.render();
+        }
     }
 
     pub fn move_view(&mut self, x: i32, y: i32) {
@@ -412,6 +428,26 @@ where
             Char('K') => self.move_view(0, -5),
             Char('H') => self.move_view(-5, 0),
             Char('L') => self.move_view(5, 0),
+
+            Char('v') => self.editor.begin_select(),
+            Char('d') => {
+                self.editor.delete();
+                self.render();
+            }
+            Char('c') => {
+                if let Some(x) = self.editor.copy() {
+                    let text: String = x.iter().map(|x| x.char ).collect();
+                    match self.clipboard.copy(text) {
+                        Ok(_) => self.log = "copied to clipboard".to_string(),
+                        Err(e) => self.log = format!("error copying: {}", e),
+                    }
+                }
+                self.render_status_bar();
+            }
+            Esc => {
+                self.editor.clear_selection();
+                self.render();
+            },
 
             Char('j') => self.move_cursor(0, 1),
             Char('k') => self.move_cursor(0, -1),

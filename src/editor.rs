@@ -61,8 +61,8 @@ type Grid = Vec<Vec<CharCel>>;
 pub struct Editor {
     buffer: Grid,
     cursor: Vector2,
-    select_start: Option<Vector2>,
-    selecting: bool,
+    pub select_start: Option<Vector2>,
+    pub selecting: bool,
 }
 
 /// Create an editor for types which implement Into<String>
@@ -115,6 +115,19 @@ impl Editor {
         let new_pos = self.clamp_vector(self.cursor.add(&direction.into()));
         self.cursor = new_pos;
         return new_pos;
+    }
+
+    /// returns true if the given cell coordinate is contained within the selection
+    pub fn selection_contains(&self, pos: Vector2) -> bool {
+        use std::cmp::{min, max};
+        if !self.selecting {
+            return false;
+        }
+
+        let from = min(self.select_start.unwrap(), self.cursor_pos());
+        let to = max(self.select_start.unwrap(), self.cursor_pos());
+
+        self.selecting && from <= pos && pos < to
     }
 
     /// Set the cursor position to a specific coordinate
@@ -278,7 +291,6 @@ impl Editor {
 
         let mut position = start.clone();
         while position < end {
-            println!("{:?}", position);
             let row = self.buffer.get(position.1 as usize).unwrap();
 
             // move to the next row when the end of a line has been reached
@@ -314,8 +326,7 @@ impl Editor {
 
         let mut rows = 0;
         let mut cols = 0;
-        while self.cursor > start {
-            println!("{:?}, {:?}, {:?}", self.cursor, start, end);
+        while self.cursor > start.add((1, 0)) {
             if let Some(x) = self.delete() {
                 match x.char {
                     '\n' => {
@@ -330,18 +341,18 @@ impl Editor {
             }
         }
 
-        let original_cursor = if original_cursor > start && original_cursor < end {
-            start
-        } else if original_cursor.1 == end.1 {
-            original_cursor.add(&Vector2T(-cols, 0))
-        } else if original_cursor > end {
-            original_cursor.add(&Vector2T(0, -rows))
-        } else {
-            original_cursor
-        };
-
-        // restore the cursor to it's original location after deleting the text
-        self.set_cursor(original_cursor);
+//        let original_cursor = if original_cursor > start && original_cursor < end {
+//            start
+//        } else if original_cursor.1 == end.1 {
+//            original_cursor.add(&Vector2T(-cols, 0))
+//        } else if original_cursor > end {
+//            original_cursor.add(&Vector2T(0, -rows))
+//        } else {
+//            original_cursor
+//        };
+//
+//        // restore the cursor to it's original location after deleting the text
+//        self.set_cursor(original_cursor);
 
         Vec::from(buffer)
     }

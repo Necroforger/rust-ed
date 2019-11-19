@@ -2,6 +2,7 @@
 
 use crate::editor::Editor;
 use crate::vector::Vector2;
+use crossterm::style::style;
 
 /// contains parameters for rendering
 #[derive(Clone, Copy, Debug)]
@@ -133,7 +134,18 @@ impl Renderer for StringRenderer {
                 let x = (x as f64 * opts.scale) as i32;
                 let y = (y as f64 * opts.scale) as i32;
                 if let Some(cell) = editor.get_cell((x, y)) {
-                    screen.push(cell.char);
+                    let t = cell.char.to_string();
+
+                    // highlight selected character cells
+                    if editor.selection_contains(Vector2(x, y)) {
+                        let stylized = style(t)
+                            .with(crossterm::style::Color::White)
+                            .on(crossterm::style::Color::Red);
+
+                        screen.push_str(&format!("{}", stylized));
+                    } else {
+                        screen.push(cell.char);
+                    }
                 } else if self.break_on_line_end && x > 0 {
                     break;
                 } else {
