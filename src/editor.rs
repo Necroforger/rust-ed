@@ -140,6 +140,34 @@ impl Editor {
         new_pos
     }
 
+    /// search for an occurrence of text in the buffer after
+    /// position `start`
+    /// returning the location of the first match
+    pub fn search(&self, text: impl Into<String>, start: Vector2) -> Option<Vector2> {
+        let text = text.into();
+        let mut c= 0;
+
+        for (y, row) in self.buffer.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                if Vector2T(x as i32, y as i32) < start {
+                    continue
+                }
+
+                if cell.char == text.chars().nth(c as usize).unwrap() {
+                    c += 1;
+                } else {
+                    c = 0;
+                }
+
+                if c == text.len() {
+                    return Some(Vector2T((x - c + 1) as i32, y as i32));
+                }
+            }
+        }
+
+        None
+    }
+
     /// clamps a vector to valid grid coordinate
     pub fn clamp_vector(&self, v: Vector2) -> Vector2 {
         let Vector2T(x, y) = v;

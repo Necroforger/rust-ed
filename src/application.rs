@@ -17,6 +17,7 @@ use std::io::{stdout, Write};
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
     SaveFileAs,
+    Search,
 }
 
 #[derive(Debug, Clone)]
@@ -176,6 +177,10 @@ where
                             self.filepath = text.clone();
                             self.log = format!("saved to file: {}", text);
                             self.save_to_file(text);
+                        }
+                        Action::Search => {
+                            let text = self.prompt_buffer.to_string();
+                            self.search_next(text);
                         }
                     },
                     None => {}
@@ -442,12 +447,18 @@ where
                         Err(e) => self.log = format!("error copying: {}", e),
                     }
                 }
-                self.render_status_bar();
+                self.render();
             }
             Esc => {
                 self.editor.clear_selection();
                 self.render();
             },
+
+            Char('/') => {
+                self.log = "search: ".into();
+                self.edit_mode = EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::Search));
+                self.render();
+            }
 
             Char('j') => self.move_cursor(0, 1),
             Char('k') => self.move_cursor(0, -1),
@@ -506,6 +517,13 @@ where
                 self.render();
             }
             _ => {}
+        }
+    }
+
+    /// search for the next occurrence of a string
+    pub fn search_next(&mut self, text: impl Into<String>) {
+        if let Some(x) = self.editor.search(text, self.editor.cursor_pos()) {
+            self.set_cursor(x.x(), x.y());
         }
     }
 
