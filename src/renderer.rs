@@ -138,12 +138,18 @@ impl Renderer for StringRenderer {
                 if highlighting {
                     if !editor.selection_contains(Vector2(x, y)) {
                         highlighting = false;
-                        screen.push_str(&format!("{}", crossterm::style::SetBackgroundColor(crossterm::style::Color::Reset)));
+                        screen.push_str(&format!(
+                            "{}",
+                            crossterm::style::SetBackgroundColor(crossterm::style::Color::Reset)
+                        ));
                     }
                 } else if !highlighting {
                     if editor.selection_contains(Vector2(x, y)) {
                         highlighting = true;
-                        screen.push_str(&format!("{}", crossterm::style::SetBackgroundColor(crossterm::style::Color::Red)));
+                        screen.push_str(&format!(
+                            "{}",
+                            crossterm::style::SetBackgroundColor(crossterm::style::Color::Red)
+                        ));
                     }
                 }
 

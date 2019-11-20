@@ -3,9 +3,9 @@
 
 // TODO: Make the write function erase the current selection before beginning a write
 
+use regex;
 use std::collections::VecDeque;
 use std::iter::Iterator;
-use regex;
 
 use crate::vector::Vector2 as Vector2T;
 use std::cmp::Ordering;
@@ -122,7 +122,7 @@ impl Editor {
 
     /// returns true if the given cell coordinate is contained within the selection
     pub fn selection_contains(&self, pos: Vector2) -> bool {
-        use std::cmp::{min, max};
+        use std::cmp::{max, min};
         if !self.selecting || self.get_cell(pos).is_none() {
             return false;
         }
@@ -146,7 +146,12 @@ impl Editor {
     /// search for an occurrence of text in the buffer after
     /// position `start`
     /// returning the location of the first match
-    pub fn search(&self, text: impl Into<String>, start: Vector2, reverse: bool) -> Option<Vector2> {
+    pub fn search(
+        &self,
+        text: impl Into<String>,
+        start: Vector2,
+        reverse: bool,
+    ) -> Option<Vector2> {
         let text = text.into();
 
         let reg = match regex::Regex::new(&text) {
@@ -158,7 +163,7 @@ impl Editor {
             return None;
         }
 
-        let it: Box<dyn Iterator<Item=(usize, &Vec<CharCel>)>> = if reverse {
+        let it: Box<dyn Iterator<Item = (usize, &Vec<CharCel>)>> = if reverse {
             Box::new(self.buffer.iter().enumerate().rev())
         } else {
             Box::new(self.buffer.iter().enumerate())
@@ -166,13 +171,13 @@ impl Editor {
 
         for (y, row) in it {
             if (!reverse && (y as i32) < start.y()) || (reverse && (y as i32) > start.y()) {
-                continue
+                continue;
             }
 
             let mut text: String = row.iter().map(|x| x.char).collect::<String>();
 
             let len = text.chars().count() as i32;
-            let (s, e) = if y == start.y() as usize {
+            let (mut s, e) = if y == start.y() as usize {
                 if reverse {
                     (0, start.x())
                 } else {
@@ -182,7 +187,15 @@ impl Editor {
                 (0, len)
             };
 
-            text = text.chars().skip(s as usize).take(e as usize - s as usize).collect();
+            if s > e {
+                s = e
+            }
+
+            text = text
+                .chars()
+                .skip(s as usize)
+                .take(e as usize - s as usize)
+                .collect();
 
             let mut matches: Vec<_> = reg.find_iter(&text).collect();
             matches.sort_by(|a, b| {
@@ -200,9 +213,12 @@ impl Editor {
             };
 
             if let Some(m) = m {
-                let c = String::from_utf8(text.as_bytes().get(m.start()..).unwrap().to_vec()).unwrap().chars().count();
-                let offset = e - c as i32;
-                return Some(Vector2T(offset, y as i32));
+                let c = text
+                    .char_indices()
+                    .take_while(|&(x, _)| x < m.start())
+                    .count();
+                let offset = s + c as i32;
+                return Some(Vector2T(offset as i32, y as i32));
             }
         }
 
@@ -410,18 +426,18 @@ impl Editor {
             }
         }
 
-//        let original_cursor = if original_cursor > start && original_cursor < end {
-//            start
-//        } else if original_cursor.1 == end.1 {
-//            original_cursor.add(&Vector2T(-cols, 0))
-//        } else if original_cursor > end {
-//            original_cursor.add(&Vector2T(0, -rows))
-//        } else {
-//            original_cursor
-//        };
-//
-//        // restore the cursor to it's original location after deleting the text
-//        self.set_cursor(original_cursor);
+        //        let original_cursor = if original_cursor > start && original_cursor < end {
+        //            start
+        //        } else if original_cursor.1 == end.1 {
+        //            original_cursor.add(&Vector2T(-cols, 0))
+        //        } else if original_cursor > end {
+        //            original_cursor.add(&Vector2T(0, -rows))
+        //        } else {
+        //            original_cursor
+        //        };
+        //
+        //        // restore the cursor to it's original location after deleting the text
+        //        self.set_cursor(original_cursor);
 
         Vec::from(buffer)
     }

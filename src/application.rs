@@ -11,9 +11,9 @@ use crossterm::{
     ExecutableCommand,
 };
 
+use crossterm::style::Colorize;
 use std::fmt::{Error, Formatter};
 use std::io::{stdout, Write};
-use crossterm::style::Colorize;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Action {
@@ -283,8 +283,7 @@ where
 
     pub fn center_renderer(&mut self, loc: impl Into<Vector2<i32>>) {
         let loc = loc.into();
-        self.render_opts.view.location.1 =
-            (loc.y() - (self.render_opts.view.height / 2)) as f64;
+        self.render_opts.view.location.1 = (loc.y() - (self.render_opts.view.height / 2)) as f64;
     }
 
     pub fn process_key_event(&mut self, event: KeyEvent) {
@@ -443,7 +442,6 @@ where
     pub fn process_command_mode(&mut self, event: KeyEvent) {
         use KeyEvent::*;
         match event {
-
             Char('i') => {
                 self.edit_mode = EditMode::Insert;
                 self.render();
@@ -475,7 +473,7 @@ where
             }
             Char('c') => {
                 if let Some(x) = self.editor.copy() {
-                    let text: String = x.iter().map(|x| x.char ).collect();
+                    let text: String = x.iter().map(|x| x.char).collect();
                     match self.clipboard.copy(text) {
                         Ok(_) => self.log = "copied to clipboard".to_string(),
                         Err(e) => self.log = format!("error copying: {}", e),
@@ -486,17 +484,21 @@ where
             Esc => {
                 self.editor.clear_selection();
                 self.render();
-            },
+            }
 
             Char('/') => {
                 self.log = "search: ".into();
-                self.edit_mode = EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::Search(false)));
+                self.edit_mode = EditMode::Prompt(
+                    Box::new(self.edit_mode.clone()),
+                    Some(Action::Search(false)),
+                );
                 self.render();
             }
 
             Char('?') => {
                 self.log = "search: ".into();
-                self.edit_mode = EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::Search(true)));
+                self.edit_mode =
+                    EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::Search(true)));
                 self.render();
             }
 
@@ -591,11 +593,7 @@ where
         let text = text.into();
         self.last_search = text.clone();
 
-        let s = if reverse {
-            -1
-        } else {
-            1
-        };
+        let s = if reverse { -1 } else { 1 };
 
         let start = if self.editor.line_len() == 0 {
             self.editor.cursor_pos().add((0, s))
@@ -635,15 +633,23 @@ where
         let l = self.render_opts.view.location;
         let r = self.render_opts.view;
 
-        let prompt_text: Vec<String> = format!("{} ", self.prompt_buffer).chars().enumerate().map(|(i, x)| {
-            if i as i32 == self.prompt_buffer.cursor_pos().x() && (if let EditMode::Prompt(_, _) = self.edit_mode { true } else { false }) {
-                crossterm::style::style(x.to_string())
-                    .on_red()
-                    .to_string()
-            } else {
-                x.to_string()
-            }
-        }).collect();
+        let prompt_text: Vec<String> = format!("{} ", self.prompt_buffer)
+            .chars()
+            .enumerate()
+            .map(|(i, x)| {
+                if i as i32 == self.prompt_buffer.cursor_pos().x()
+                    && (if let EditMode::Prompt(_, _) = self.edit_mode {
+                        true
+                    } else {
+                        false
+                    })
+                {
+                    crossterm::style::style(x.to_string()).on_red().to_string()
+                } else {
+                    x.to_string()
+                }
+            })
+            .collect();
 
         let text = format!(
             "help[F1] {x:.2}:{y:.2}:{w}:{h}/{scale:.2}//[{mode}][{log}]:",
@@ -661,7 +667,9 @@ where
             let c = if (i as usize) < prompt_offset {
                 text.chars().nth(i as usize).map(|x| x.to_string())
             } else if (i as usize) < prompt_offset + prompt_text.len() {
-                prompt_text.get(i as usize - prompt_offset).map(|x| x.clone())
+                prompt_text
+                    .get(i as usize - prompt_offset)
+                    .map(|x| x.clone())
             } else {
                 Some(" ".to_string())
             };
