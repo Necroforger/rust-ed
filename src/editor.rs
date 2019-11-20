@@ -120,7 +120,7 @@ impl Editor {
     /// returns true if the given cell coordinate is contained within the selection
     pub fn selection_contains(&self, pos: Vector2) -> bool {
         use std::cmp::{min, max};
-        if !self.selecting {
+        if !self.selecting || self.get_cell(pos).is_none() {
             return false;
         }
 

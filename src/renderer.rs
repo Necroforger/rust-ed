@@ -129,23 +129,27 @@ impl Renderer for StringRenderer {
 
         let x2 = opts.view.location.x().round() as i32;
 
+        let mut highlighting = false;
+
         for y in y2..y2 + height {
             for x in x2..x2 + width {
                 let x = (x as f64 * opts.scale) as i32;
                 let y = (y as f64 * opts.scale) as i32;
-                if let Some(cell) = editor.get_cell((x, y)) {
-                    let t = cell.char.to_string();
 
-                    // highlight selected character cells
-                    if editor.selection_contains(Vector2(x, y)) {
-                        let stylized = style(t)
-                            .with(crossterm::style::Color::White)
-                            .on(crossterm::style::Color::Red);
-
-                        screen.push_str(&format!("{}", stylized));
-                    } else {
-                        screen.push(cell.char);
+                if highlighting {
+                    if !editor.selection_contains(Vector2(x, y)) {
+                        highlighting = false;
+                        screen.push_str(&format!("{}", crossterm::style::SetBackgroundColor(crossterm::style::Color::Reset)));
                     }
+                } else if !highlighting {
+                    if editor.selection_contains(Vector2(x, y)) {
+                        highlighting = true;
+                        screen.push_str(&format!("{}", crossterm::style::SetBackgroundColor(crossterm::style::Color::Red)));
+                    }
+                }
+
+                if let Some(cell) = editor.get_cell((x, y)) {
+                    screen.push(cell.char);
                 } else if self.break_on_line_end && x > 0 {
                     break;
                 } else {

@@ -419,6 +419,7 @@ where
     pub fn process_command_mode(&mut self, event: KeyEvent) {
         use KeyEvent::*;
         match event {
+
             Char('i') => {
                 self.edit_mode = EditMode::Insert;
                 self.render();
@@ -524,6 +525,18 @@ where
 
                 self.log = "reset render scale to 1".to_string();
                 self.render();
+            }
+            Down => {
+                self.move_cursor(0, 1);
+            }
+            Up => {
+                self.move_cursor(0, -1);
+            }
+            Right => {
+                self.move_cursor(1, 0);
+            }
+            Left => {
+                self.move_cursor(-1, 0);
             }
             _ => {}
         }
