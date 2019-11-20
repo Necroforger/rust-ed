@@ -13,6 +13,7 @@ use crossterm::{
 
 use std::fmt::{Error, Formatter};
 use std::io::{stdout, Write};
+use crossterm::style::Colorize;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
@@ -169,6 +170,14 @@ where
                 reset!();
                 update!();
             }
+            Left => {
+                self.prompt_buffer.move_cursor((-1, 0));
+                update!();
+            }
+            Right => {
+                self.prompt_buffer.move_cursor((1, 0));
+                update!();
+            }
             Enter => {
                 match action {
                     Some(action) => match action {
@@ -258,18 +267,6 @@ where
 
         // global key bindings, apply regardless of edit mode
         match event {
-            Down => {
-                self.move_cursor(0, 1);
-            }
-            Up => {
-                self.move_cursor(0, -1);
-            }
-            Right => {
-                self.move_cursor(1, 0);
-            }
-            Left => {
-                self.move_cursor(-1, 0);
-            }
             CtrlDown => {
                 self.move_view(0, 1);
             }
@@ -357,6 +354,18 @@ where
     pub fn process_insert_mode(&mut self, event: KeyEvent) {
         use KeyEvent::*;
         match event {
+            Down => {
+                self.move_cursor(0, 1);
+            }
+            Up => {
+                self.move_cursor(0, -1);
+            }
+            Right => {
+                self.move_cursor(1, 0);
+            }
+            Left => {
+                self.move_cursor(-1, 0);
+            }
             Char(x) => {
                 self.log = format!("{}{}{}", "[", x, "]");
                 self.editor.write(x);
@@ -552,6 +561,16 @@ where
 
         use std::cmp::max;
 
+        let prompt_text: String = self.prompt_buffer.to_string().chars().enumerate().map(|(i, x)| {
+            if i as i32 == self.prompt_buffer.cursor_pos().x() - 1 {
+                crossterm::style::style(x.to_string())
+                    .on_red()
+                    .to_string()
+            } else {
+                x.to_string()
+            }
+        }).collect();
+
         let mut text = format!(
             "help[F1] {x:.2}:{y:.2}:{w}:{h}/{scale:.2}//[{mode}][{log}]: {prompt}",
             x = l.x(),
@@ -561,7 +580,7 @@ where
             scale = self.render_opts.scale,
             log = self.log,
             mode = self.edit_mode.to_string().to_uppercase(),
-            prompt = self.prompt_buffer,
+            prompt = prompt_text,
         );
 
         if text.len() > r.width as usize {

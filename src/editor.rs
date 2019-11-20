@@ -147,20 +147,26 @@ impl Editor {
         let text = text.into();
         let mut c= 0;
 
+        if text.len() == 0 {
+            return None;
+        }
+
         for (y, row) in self.buffer.iter().enumerate() {
             for (x, cell) in row.iter().enumerate() {
                 if Vector2T(x as i32, y as i32) < start {
                     continue
                 }
 
-                if cell.char == text.chars().nth(c as usize).unwrap() {
-                    c += 1;
-                } else {
-                    c = 0;
+                if let Some(chr) = text.chars().nth(c as usize) {
+                    if cell.char == chr {
+                        c += 1;
+                    } else {
+                        c = 0;
+                    }
                 }
 
                 if c == text.len() {
-                    return Some(Vector2T((x - c + 1) as i32, y as i32));
+                    return Some(Vector2T((x - (c - 1)) as i32, y as i32));
                 }
             }
         }
