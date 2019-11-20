@@ -18,7 +18,9 @@ use crossterm::style::Colorize;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Action {
     SaveFileAs,
-    Search,
+
+    // if the provided boolean is true, search backwards through the text
+    Search(bool),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -66,6 +68,9 @@ where
     // current edit mode
     pub edit_mode: EditMode,
 
+    // the value of the last search text
+    last_search: String,
+
     // buffer to store the results of a prompt in
     prompt_buffer: Editor,
 
@@ -95,10 +100,12 @@ where
             render_break_line_hint: false,
 
             prompt_buffer: Editor::new(),
-            edit_mode: EditMode::Insert,
+            edit_mode: EditMode::Command,
 
             cursor_hidden: false,
             filepath: filepath.into(),
+
+            last_search: String::new(),
         }
     }
 
@@ -178,6 +185,18 @@ where
                 self.prompt_buffer.move_cursor((1, 0));
                 update!();
             }
+            Up => {
+                if let Some(a) = action {
+                    match a {
+                        Action::Search(_) => {
+                            self.prompt_buffer = Editor::from(self.last_search.clone());
+                            self.prompt_buffer.move_cursor_to(Position::LineEnd);
+                            self.render();
+                        }
+                        _ => {}
+                    }
+                }
+            }
             Enter => {
                 match action {
                     Some(action) => match action {
@@ -187,9 +206,9 @@ where
                             self.log = format!("saved to file: {}", text);
                             self.save_to_file(text);
                         }
-                        Action::Search => {
+                        Action::Search(reverse) => {
                             let text = self.prompt_buffer.to_string();
-                            self.search_next(text);
+                            self.search_next(text, reverse);
                         }
                     },
                     None => {}
@@ -262,6 +281,12 @@ where
         self.render();
     }
 
+    pub fn center_renderer(&mut self, loc: impl Into<Vector2<i32>>) {
+        let loc = loc.into();
+        self.render_opts.view.location.1 =
+            (loc.y() - (self.render_opts.view.height / 2)) as f64;
+    }
+
     pub fn process_key_event(&mut self, event: KeyEvent) {
         use KeyEvent::*;
 
@@ -312,8 +337,7 @@ where
             }
             Ctrl('l') => {
                 // center the screen on the cursor
-                self.render_opts.view.location.1 =
-                    (self.editor.cursor_pos().y() - (self.render_opts.view.height / 2)) as f64;
+                self.center_renderer(self.editor.cursor_pos());
                 self.render();
             }
             Ctrl('s') => {
@@ -466,7 +490,27 @@ where
 
             Char('/') => {
                 self.log = "search: ".into();
-                self.edit_mode = EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::Search));
+                self.edit_mode = EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::Search(false)));
+                self.render();
+            }
+
+            Char('?') => {
+                self.log = "search: ".into();
+                self.edit_mode = EditMode::Prompt(Box::new(self.edit_mode.clone()), Some(Action::Search(true)));
+                self.render();
+            }
+
+            // repeat last search
+            Char('n') => {
+                self.log = "repeating last search".into();
+                self.search_next(self.last_search.clone(), false);
+                self.render();
+            }
+
+            // repeat last search backwards
+            Char('N') => {
+                self.log = "repeating last search".into();
+                self.search_next(self.last_search.clone(), true);
                 self.render();
             }
 
@@ -543,9 +587,28 @@ where
     }
 
     /// search for the next occurrence of a string
-    pub fn search_next(&mut self, text: impl Into<String>) {
-        if let Some(x) = self.editor.search(text, self.editor.cursor_pos()) {
+    pub fn search_next(&mut self, text: impl Into<String>, reverse: bool) {
+        let text = text.into();
+        self.last_search = text.clone();
+
+        let s = if reverse {
+            -1
+        } else {
+            1
+        };
+
+        let start = if self.editor.line_len() == 0 {
+            self.editor.cursor_pos().add((0, s))
+        } else {
+            self.editor.cursor_pos().add((s, 0))
+        };
+
+        if let Some(x) = self.editor.search(text, start, reverse) {
             self.set_cursor(x.x(), x.y());
+            if !self.render_opts.view.contains(Vector2::from(x)) {
+                self.center_renderer(x);
+                self.render();
+            }
         }
     }
 

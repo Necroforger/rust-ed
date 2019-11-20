@@ -5,6 +5,7 @@
 
 use std::collections::VecDeque;
 use std::iter::Iterator;
+use regex;
 
 use crate::vector::Vector2 as Vector2T;
 type Vector2 = Vector2T<i32>;
@@ -143,31 +144,48 @@ impl Editor {
     /// search for an occurrence of text in the buffer after
     /// position `start`
     /// returning the location of the first match
-    pub fn search(&self, text: impl Into<String>, start: Vector2) -> Option<Vector2> {
+    pub fn search(&self, text: impl Into<String>, start: Vector2, reverse: bool) -> Option<Vector2> {
         let text = text.into();
-        let mut c= 0;
+
+        let reg = match regex::Regex::new(&text) {
+            Ok(r) => r,
+            Err(_) => return None,
+        };
 
         if text.len() == 0 {
             return None;
         }
 
-        for (y, row) in self.buffer.iter().enumerate() {
-            for (x, cell) in row.iter().enumerate() {
-                if Vector2T(x as i32, y as i32) < start {
-                    continue
-                }
+        let it: Box<dyn Iterator<Item=(usize, &Vec<CharCel>)>> = if reverse {
+            Box::new(self.buffer.iter().enumerate().rev())
+        } else {
+            Box::new(self.buffer.iter().enumerate())
+        };
 
-                if let Some(chr) = text.chars().nth(c as usize) {
-                    if cell.char == chr {
-                        c += 1;
-                    } else {
-                        c = 0;
-                    }
-                }
+        for (y, row) in it {
+            if (!reverse && (y as i32) < start.y()) || (reverse && (y as i32) > start.y()) {
+                continue
+            }
 
-                if c == text.len() {
-                    return Some(Vector2T((x - (c - 1)) as i32, y as i32));
+            let mut text: String = row.iter().map(|x| x.char).collect::<String>();
+
+            let len = text.chars().count() as i32;
+            let (s, e) = if y == start.y() as usize {
+                if reverse {
+                    (0, start.x())
+                } else {
+                    (start.x(), len)
                 }
+            } else {
+                (0, len)
+            };
+
+            text = text.chars().skip(s as usize).take(e as usize - s as usize).collect();
+
+            if let Some(m) = reg.find(&text) {
+                let c = String::from_utf8(text.as_bytes().get(m.start()..).unwrap().to_vec()).unwrap().chars().count();
+                let offset = len - c as i32;
+                return Some(Vector2T(offset, y as i32));
             }
         }
 
