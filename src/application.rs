@@ -593,15 +593,9 @@ where
         let text = text.into();
         self.last_search = text.clone();
 
-        let s = if reverse { -1 } else { 1 };
+        let start = self.editor.cursor_pos();
 
-        let start = if self.editor.line_len() == 0 {
-            self.editor.cursor_pos().add((0, s))
-        } else {
-            self.editor.cursor_pos().add((s, 0))
-        };
-
-        if let Some(x) = self.editor.search(text, start, reverse) {
+        if let Some(x) = self.editor.search(&text, start, reverse) {
             self.set_cursor(x.x(), x.y());
             if !self.render_opts.view.contains(Vector2::from(x)) {
                 self.center_renderer(x);

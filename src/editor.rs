@@ -8,7 +8,6 @@ use std::collections::VecDeque;
 use std::iter::Iterator;
 
 use crate::vector::Vector2 as Vector2T;
-use std::cmp::Ordering;
 
 type Vector2 = Vector2T<i32>;
 
@@ -174,42 +173,39 @@ impl Editor {
                 continue;
             }
 
-            let mut text: String = row.iter().map(|x| x.char).collect::<String>();
-
-            let len = text.chars().count() as i32;
-            let (mut s, e) = if y == start.y() as usize {
-                if reverse {
-                    (0, start.x())
-                } else {
-                    (start.x(), len)
-                }
-            } else {
-                (0, len)
-            };
-
-            if s > e {
-                s = e
-            }
-
-            text = text
-                .chars()
-                .skip(s as usize)
-                .take(e as usize - s as usize)
-                .collect();
+            let text: String = row.iter().map(|x| x.char).collect();
 
             let mut matches: Vec<_> = reg.find_iter(&text).collect();
-            matches.sort_by(|a, b| {
-                if a.start() < b.start() {
-                    Ordering::Less
-                } else {
-                    Ordering::Greater
-                }
-            });
+            matches.sort_by(|a, b| a.start().cmp(&b.start()));
 
-            let m = if reverse {
-                matches.last()
+            // choose the closest match to the cursor
+            let m = if y as i32 == start.y() {
+                // get the byte position of the cursor
+                if row.len() == 0 {
+                    continue;
+                } else {
+                    let byte_pos = text
+                        .char_indices()
+                        .nth(if start.x() as usize >= row.len() {
+                            row.len() - 1
+                        } else {
+                            start.x() as usize
+                        })
+                        .map(|(a, _)| a)
+                        .unwrap();
+
+                    if reverse {
+                        matches.iter().take_while(|&&x| x.start() < byte_pos).last()
+                    } else {
+                        matches.iter().filter(|&&x| x.start() > byte_pos).nth(0)
+                    }
+                }
             } else {
-                matches.first()
+                if reverse {
+                    matches.last()
+                } else {
+                    matches.first()
+                }
             };
 
             if let Some(m) = m {
@@ -217,8 +213,7 @@ impl Editor {
                     .char_indices()
                     .take_while(|&(x, _)| x < m.start())
                     .count();
-                let offset = s + c as i32;
-                return Some(Vector2T(offset as i32, y as i32));
+                return Some(Vector2T(c as i32, y as i32));
             }
         }
 
