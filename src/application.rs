@@ -15,13 +15,13 @@ use std::fmt::{Error, Formatter};
 use std::io::{stdout, Write};
 use crossterm::style::Colorize;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Action {
     SaveFileAs,
     Search,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EditMode {
     Command,
     Insert,
@@ -572,10 +572,8 @@ where
         let l = self.render_opts.view.location;
         let r = self.render_opts.view;
 
-        use std::cmp::max;
-
-        let prompt_text: String = self.prompt_buffer.to_string().chars().enumerate().map(|(i, x)| {
-            if i as i32 == self.prompt_buffer.cursor_pos().x() - 1 {
+        let prompt_text: Vec<String> = format!("{} ", self.prompt_buffer).chars().enumerate().map(|(i, x)| {
+            if i as i32 == self.prompt_buffer.cursor_pos().x() && (if let EditMode::Prompt(_, _) = self.edit_mode { true } else { false }) {
                 crossterm::style::style(x.to_string())
                     .on_red()
                     .to_string()
@@ -584,8 +582,8 @@ where
             }
         }).collect();
 
-        let mut text = format!(
-            "help[F1] {x:.2}:{y:.2}:{w}:{h}/{scale:.2}//[{mode}][{log}]: {prompt}",
+        let text = format!(
+            "help[F1] {x:.2}:{y:.2}:{w}:{h}/{scale:.2}//[{mode}][{log}]:",
             x = l.x(),
             y = l.y(),
             w = r.width,
@@ -593,18 +591,22 @@ where
             scale = self.render_opts.scale,
             log = self.log,
             mode = self.edit_mode.to_string().to_uppercase(),
-            prompt = prompt_text,
         );
 
-        if text.len() > r.width as usize {
-            text = text[..r.width as usize].to_string()
+        let prompt_offset = text.len();
+        for i in 0..self.render_opts.view.width {
+            let c = if (i as usize) < prompt_offset {
+                text.chars().nth(i as usize).map(|x| x.to_string())
+            } else if (i as usize) < prompt_offset + prompt_text.len() {
+                prompt_text.get(i as usize - prompt_offset).map(|x| x.clone())
+            } else {
+                Some(" ".to_string())
+            };
+
+            if let Some(c) = c {
+                print!("{}", c);
+            }
         }
-
-        let padding: String = std::iter::repeat(" ")
-            .take(max(r.width as usize - text.len(), 0))
-            .collect();
-
-        print!("{}{}", text, padding);
     }
 
     /// move to the beginning of the line

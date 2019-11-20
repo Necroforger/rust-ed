@@ -2,7 +2,6 @@
 
 use crate::editor::Editor;
 use crate::vector::Vector2;
-use crossterm::style::style;
 
 /// contains parameters for rendering
 #[derive(Clone, Copy, Debug)]
