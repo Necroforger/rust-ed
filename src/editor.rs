@@ -8,6 +8,8 @@ use std::iter::Iterator;
 use regex;
 
 use crate::vector::Vector2 as Vector2T;
+use std::cmp::Ordering;
+
 type Vector2 = Vector2T<i32>;
 
 /// relative positions in the editor
@@ -182,9 +184,24 @@ impl Editor {
 
             text = text.chars().skip(s as usize).take(e as usize - s as usize).collect();
 
-            if let Some(m) = reg.find(&text) {
+            let mut matches: Vec<_> = reg.find_iter(&text).collect();
+            matches.sort_by(|a, b| {
+                if a.start() < b.start() {
+                    Ordering::Less
+                } else {
+                    Ordering::Greater
+                }
+            });
+
+            let m = if reverse {
+                matches.last()
+            } else {
+                matches.first()
+            };
+
+            if let Some(m) = m {
                 let c = String::from_utf8(text.as_bytes().get(m.start()..).unwrap().to_vec()).unwrap().chars().count();
-                let offset = len - c as i32;
+                let offset = e - c as i32;
                 return Some(Vector2T(offset, y as i32));
             }
         }
