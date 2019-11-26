@@ -272,6 +272,13 @@ where
         }
     }
 
+    /// perform a search and then restore the previous search state
+    pub fn move_cursor_search(&mut self, regex: &str, reverse: bool) {
+        let tmp = self.last_search.clone();
+        self.search_next(regex, reverse);
+        self.last_search = tmp;
+    }
+
     pub fn move_view(&mut self, x: i32, y: i32) {
         self.render_opts.view.location = self
             .render_opts
@@ -520,8 +527,18 @@ where
             Char('k') => self.move_cursor(0, -1),
             Char('h') => self.move_cursor(-1, 0),
             Char('l') => self.move_cursor(1, 0),
-            Char('w') => self.next_word(true),
-            Char('b') => self.next_word(false),
+            Char('w') => {
+                self.next_word(true);
+                if self.editor.selecting {
+                    self.render();
+                }
+            },
+            Char('b') => {
+                self.next_word(false);
+                if self.editor.selecting {
+                    self.render();
+                }
+            },
             Char('$') => {
                 self.go_to_line_end();
                 self.update_cursor_pos();
@@ -595,6 +612,8 @@ where
 
         let start = self.editor.cursor_pos();
 
+        // center the renderer around the search location if it is out of view
+        // TODO: changing the cursor to always be within editor bounds would fix this problem
         if let Some(x) = self.editor.search(&text, start, reverse) {
             self.set_cursor(x.x(), x.y());
             if !self.render_opts.view.contains(Vector2::from(x)) {
